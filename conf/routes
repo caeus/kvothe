@@ -4,7 +4,13 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET     /                           controllers.HomeController.index
+GET         /                                                 controllers.HomeController.index
+GET         /sheets/~refs                                     controllers.SheetsCtrl.all
+POST        /sheets/~init                                     controllers.SheetsCtrl.init
+GET         /sheets/:sheetId/~versioned                       controllers.SheetsCtrl.versioned(sheetId,patch:Option[String]?=None)
+GET         /sheets/:sheetId/~versions                        controllers.SheetsCtrl.versionsOf(sheetId)
+POST        /sheets/:sheetId/~patch                           controllers.SheetsCtrl.patch(sheetId)
+
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+GET         /assets/*file                                     controllers.Assets.versioned(path="/public", file: Asset)

@@ -5,7 +5,7 @@ import java.io.File
 import javax.inject._
 import play.api._
 import play.api.mvc._
-import repositories.SheetsRepo
+import repositories.SheetsIO
 
 /**
   * This controller creates an `Action` to handle HTTP requests to the
@@ -14,7 +14,7 @@ import repositories.SheetsRepo
 @Singleton
 class HomeController @Inject()
 (
-  sheetsRepo: SheetsRepo
+  sheetsRepo: SheetsIO
   ,
   cc: ControllerComponents
 ) extends AbstractController(cc) {

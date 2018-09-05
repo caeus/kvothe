@@ -1,6 +1,8 @@
 
 package utility.git.types
 
+import java.nio.file.Path
+
 import akka.util.ByteString
 import cats.free.Free
 import cats.free.Free.liftF
@@ -15,6 +17,11 @@ package object cmds {
 
 
   object F {
+    case class ListFiles(fileName: String) extends GitOp[Seq[Path]]
+
+    def listFiles(fileName: String): Free[GitOp, Seq[Path]] =
+      liftF[GitOp, Seq[Path]](ListFiles(fileName))
+
     case class Touch(fileName: String) extends GitOp[Unit]
 
     def touch(fileName: String): Free[GitOp, Unit] = liftF[GitOp, Unit](Touch(fileName))

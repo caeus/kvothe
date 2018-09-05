@@ -13,7 +13,8 @@ libraryDependencies ++= Seq(
   "com.softwaremill.common" %% "tagging" % "2.2.1",
   "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
   "io.monix" %% "monix" % "3.0.0-RC1",
-  "org.eclipse.jgit" % "org.eclipse.jgit" % "5.0.1.201806211838-r"
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "5.0.1.201806211838-r",
+  "org.gnieh" %% "diffson-play-json" % "3.0.0"
 )
 
 

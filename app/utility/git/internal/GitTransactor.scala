@@ -3,6 +3,7 @@ package utility.git.internal
 import java.io.File
 import java.nio.file._
 
+import scala.collection.JavaConverters
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
@@ -41,6 +42,7 @@ object GitTransactor {
 }
 
 class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
+  import scala.collection.JavaConverters._
   override def apply[A](fa: GitOp[A]): Try[A] = {
 
     fa match {
@@ -59,6 +61,9 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         out.write(content.toByteBuffer)
         out.close()
         ()
+      }
+      case F.ListFiles(fileName)=>Try{
+        Files.list(Paths.get(fileName)).iterator().asScala.toSeq
       }
       case G.Checkout(branchName) => Try {
         git.checkout().setName(branchName).call()
