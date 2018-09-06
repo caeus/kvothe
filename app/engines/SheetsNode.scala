@@ -4,19 +4,19 @@ package engines
 import javax.inject.Inject
 import model._
 import monix.eval.Task
-import repositories.{SheetsIO, UserSheetsIO}
+import repositories.{SheetsIO, GrantsIO}
 
 
 class SheetsNode @Inject()(
   sheetsRepo: SheetsIO,
-  userSheetsRepo: UserSheetsIO
+  userSheetsRepo: GrantsIO
 ) {
 
 
   def all(implicit userId: UserId): Task[Seq[SheetRef]] = {
     userSheetsRepo.allOf(userId)
       .map(_.map {
-        case UserSheet(_, sheetId) => SheetRef(sheetId)
+        case Grant(_, sheetId) => SheetRef(sheetId)
       })
   }
 

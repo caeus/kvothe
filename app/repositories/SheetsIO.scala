@@ -4,7 +4,7 @@ import scala.reflect.ClassTag
 
 import akka.util.ByteString
 import com.google.inject.{ImplementedBy, Inject}
-import javax.inject.Singleton
+import javax.inject.{Named, Singleton}
 import model._
 import monix.eval.Task
 import play.api.libs.json.{JsObject, Json}
@@ -31,7 +31,7 @@ trait SheetsIO {
 
 
 @Singleton
-class SheetsGitIO @Inject()(gitRepo: GitExecutor) extends SheetsIO {
+class SheetsGitIO @Inject()(@Named("sheets")gitRepo: GitExecutor) extends SheetsIO {
 
 
   private def toVersion(commitRef: CommitRef): SheetVersion = SheetVersion(id = SheetVersionId(commitRef.id),

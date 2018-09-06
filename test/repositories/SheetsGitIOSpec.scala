@@ -1,6 +1,6 @@
 package repositories
 
-import java.nio.file.{Files, Path, Paths, SimpleFileVisitor}
+import java.nio.file.Paths
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
@@ -11,7 +11,6 @@ import gnieh.diffson.Part
 import model._
 import monix.eval.Task
 import monix.execution.Scheduler
-import org.eclipse.jgit.api.Git
 import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.play._
 import org.scalatestplus.play.guice._
@@ -28,6 +27,8 @@ import play.api.test._
 class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
 
 
+  val testSheetsRepoRoot = Paths.get("internal/test/sheets")
+
   private implicit class SyncRunnable[T](task: Task[T]) {
     def unsafeRunSync(implicit executionContext: ExecutionContext): T = {
       implicit val scheduler: Scheduler = Scheduler(executionContext)
@@ -36,29 +37,7 @@ class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
   }
 
   override protected def beforeAll(): Unit = {
-
-    Files.walkFileTree(Paths.get("internal/test"), new SimpleFileVisitor[Path] {
-
-      import java.io.IOException
-      import java.nio.file.attribute.BasicFileAttributes
-      import java.nio.file.{FileVisitResult, Files}
-
-      @throws[IOException]
-      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-        Files.delete(file)
-        FileVisitResult.CONTINUE
-      }
-
-      @throws[IOException]
-      override def postVisitDirectory(dir: Path, exc: IOException): FileVisitResult = {
-        Files.delete(dir)
-        FileVisitResult.CONTINUE
-      }
-    })
-    Files.createDirectory(Paths.get("internal/test"))
-
-    val repo = Git.init().setDirectory(Paths.get("internal/test").toFile).call()
-    repo.commit().setAll(true).setMessage("Initial commit for test").call()
+    RestartRepo(testSheetsRepoRoot)
   }
 
   "GitSheetsRepo" should {
@@ -121,4 +100,4 @@ class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
   }
 }
 
-case class GitSheetsRepoTestDeps()
+

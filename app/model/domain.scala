@@ -40,4 +40,4 @@ case class SheetPatch(value:JsArray)
 
 
 
-case class UserSheet(userId: UserId, sheetId: SheetId)
+case class Grant(userId: UserId, sheetId: SheetId)

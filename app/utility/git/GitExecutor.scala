@@ -9,13 +9,14 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.util.Timeout
 import com.google.inject.ImplementedBy
 import com.softwaremill.tagging._
-import javax.inject.{Inject, Singleton}
+import config.RepoRoots
+import javax.inject.{Inject, Named, Singleton}
 import monix.eval.Task
 import org.eclipse.jgit.api.Git
 import utility.git.internal.GitTransactor
 import utility.git.types.cmds.{GitScript, GitTx}
 
-@ImplementedBy(classOf[GuiceGitActorExecutor])
+
 trait GitExecutor {
   def exec[T: ClassTag](script: GitTx[T]): Task[T]
 }
@@ -29,8 +30,16 @@ class GitActorExecutor(transactor: ActorRef @@ GitTransactor)(implicit timeout: 
   }
 }
 @Singleton
-class GuiceGitActorExecutor @Inject()(lazyGitHolder: LazyGitHolder, system: ActorSystem)
-  extends GitActorExecutor(transactor = system.actorOf(GitTransactor.props(lazyGitHolder.repo))
+@Named("sheets")
+class SheetsGitExecutor @Inject()(repoRoots: RepoRoots, system: ActorSystem)
+  extends GitActorExecutor(transactor = system.actorOf(GitTransactor.props(repoRoots.sheets))
+    .taggedWith[GitTransactor]
+  )(Timeout(10.seconds))
+
+@Singleton
+@Named("grants")
+class GrantsGitExecutor @Inject()(repoRoots: RepoRoots, system: ActorSystem)
+  extends GitActorExecutor(transactor = system.actorOf(GitTransactor.props(repoRoots.grants))
     .taggedWith[GitTransactor]
   )(Timeout(10.seconds))
 

@@ -3,7 +3,6 @@ package utility.git.internal
 import java.io.File
 import java.nio.file._
 
-import scala.collection.JavaConverters
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
@@ -13,7 +12,7 @@ import cats.implicits._
 import cats.~>
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.errors.MissingObjectException
-import org.eclipse.jgit.lib.{ObjectId, PersonIdent}
+import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.revwalk.RevWalk
 import utility.git.types.cmds.{GitScript, _}
 import utility.git.types.{CommitRef, GitBackedCommit}
@@ -43,6 +42,7 @@ object GitTransactor {
 
 class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
   import scala.collection.JavaConverters._
+
   override def apply[A](fa: GitOp[A]): Try[A] = {
 
     fa match {
@@ -50,7 +50,11 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         new File(git.getRepository.getWorkTree, fileName).exists()
       }
       case F.Touch(fileName) => Try {
-        new File(git.getRepository.getWorkTree, fileName).createNewFile()
+        val path = Paths.get(fileName)
+        Option(path.getParent).foreach{
+          parent=> Files.createDirectories(parent)
+        }
+        Files.createFile(path)
         ()
       }
       case F.Read(fileName) => Try {
@@ -62,15 +66,15 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         out.close()
         ()
       }
-      case F.ListFiles(fileName)=>Try{
+      case F.ListFiles(fileName) => Try {
         Files.list(Paths.get(fileName)).iterator().asScala.toSeq
       }
       case G.Checkout(branchName) => Try {
         git.checkout().setName(branchName).call()
         ()
       }
-      case G.Commit(comment,author) => Try {
-        new GitBackedCommit(git.commit().setMessage(comment).setAuthor(author,s"$author@kvothe").call())
+      case G.Commit(comment, author) => Try {
+        new GitBackedCommit(git.commit().setMessage(comment).setAuthor(author, s"$author@kvothe").call())
       }
       case G.Add(fileName) => Try {
         git.add().addFilepattern(fileName).call()
@@ -90,8 +94,8 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         walk.close()
         new GitBackedCommit(walk.parseCommit(ObjectId.fromString(id)))
       } match {
-        case Success(v:CommitRef)=> Success(Some(v))
-        case Failure(e:MissingObjectException)=> Success(None)
+        case Success(v: CommitRef) => Success(Some(v))
+        case Failure(e: MissingObjectException) => Success(None)
         case Failure(e) => Failure(e)
       }
     }
