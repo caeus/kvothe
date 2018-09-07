@@ -8,13 +8,13 @@ import repositories.{SheetsIO, GrantsIO}
 
 
 class SheetsNode @Inject()(
-  sheetsRepo: SheetsIO,
-  userSheetsRepo: GrantsIO
+  sheetsIO: SheetsIO,
+  grantsIO: GrantsIO
 ) {
 
 
   def all(implicit userId: UserId): Task[Seq[SheetRef]] = {
-    userSheetsRepo.allOf(userId)
+    grantsIO.allOf(userId)
       .map(_.map {
         case Grant(_, sheetId) => SheetRef(sheetId)
       })
@@ -22,24 +22,24 @@ class SheetsNode @Inject()(
 
 
   def versionsOf(sheetId: SheetId)(implicit userId: UserId): Task[Seq[SheetVersion]] = {
-    userSheetsRepo.bySheetId(userId, sheetId)
+    grantsIO.bySheetId(userId, sheetId)
       .otherwise(new Exception("FIXXX")).flatMap { _ =>
-      sheetsRepo.versions(sheetId)
+      sheetsIO.versions(sheetId)
     }
   }
 
   def versioned(sheetId: SheetId)(versionId: Option[SheetVersionId])
     (implicit userId: UserId): Task[Option[VersionedSheet]] = {
-    userSheetsRepo.bySheetId(userId, sheetId)
+    grantsIO.bySheetId(userId, sheetId)
       .otherwise(new Exception("Fixxx2")).flatMap {
       _ =>
-        sheetsRepo.versioned(sheetId)()
+        sheetsIO.versioned(sheetId)(versionId)
     }
   }
 
   def patch(sheetId: SheetId)(patch: SheetPatch)
     (implicit userId: UserId): Task[SheetVersion] = {
-    userSheetsRepo.bySheetId(userId, sheetId)
+    grantsIO.bySheetId(userId, sheetId)
       .otherwise(new Exception("Fixxxx4"))
       .flatMap {
         _ => ???

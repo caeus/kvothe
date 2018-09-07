@@ -50,7 +50,7 @@ class GrantsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
       inject[GrantsIO].grantTo(UserId("caeus"), SheetId("ezra")).unsafeRunSync
 
       inject[GrantsIO].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isDefined mustBe true
-
+      inject[GrantsIO].allOf(UserId("caeus")).unsafeRunSync.length mustBe 1
 
     }
 

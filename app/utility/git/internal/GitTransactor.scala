@@ -3,7 +3,6 @@ package utility.git.internal
 import java.io.File
 import java.nio.file._
 
-import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 import akka.actor.{Actor, Props, Status}
@@ -43,25 +42,28 @@ object GitTransactor {
 class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
   import scala.collection.JavaConverters._
 
+  val rootDir = git.getRepository.getWorkTree.toPath
+
+
   override def apply[A](fa: GitOp[A]): Try[A] = {
 
     fa match {
       case F.Exists(fileName) => Try {
-        new File(git.getRepository.getWorkTree, fileName).exists()
+        Files.exists(rootDir.resolve(fileName))
       }
       case F.Touch(fileName) => Try {
-        val path = Paths.get(fileName)
-        Option(path.getParent).foreach{
-          parent=> Files.createDirectories(parent)
+        val path = rootDir.resolve(fileName)
+        Option(path.getParent).foreach {
+          parent => Files.createDirectories(parent)
         }
         Files.createFile(path)
         ()
       }
       case F.Read(fileName) => Try {
-        ByteString(Source.fromFile(new File(git.getRepository.getWorkTree, fileName)).mkString)
+        ByteString(Files.readAllBytes(rootDir.resolve(fileName)))
       }
       case F.Write(fileName, content) => Try {
-        val out = Files.newByteChannel(new File(git.getRepository.getWorkTree, fileName).toPath, StandardOpenOption.WRITE)
+        val out = Files.newByteChannel(rootDir.resolve(fileName), StandardOpenOption.WRITE)
         out.write(content.toByteBuffer)
         out.close()
         ()
@@ -81,8 +83,6 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         ()
       }
       case G.LogOf(fileName) => Try {
-
-
         import scala.collection.JavaConverters._
         git.log().addPath(fileName).call().iterator().asScala.map {
           commitRev =>

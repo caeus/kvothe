@@ -52,6 +52,7 @@ class GrantsGitIO @Inject()(@Named("grants") executor: GitExecutor) extends Gran
     executor exec (for {
       _ <- G.checkout("master")
       exists <- F.exists(s"${userId.value}/${sheetId.value}")
+      _ = println(s"WTF $exists = ${userId.value}/${sheetId.value}")
       _ <- if (!exists) F.touch(s"${userId.value}/${sheetId.value}")
       else pure(())
     } yield
