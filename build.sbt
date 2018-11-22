@@ -14,8 +14,11 @@ libraryDependencies ++= Seq(
   "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
   "io.monix" %% "monix" % "3.0.0-RC1",
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.0.1.201806211838-r",
-  "org.gnieh" %% "diffson-play-json" % "3.0.0"
-)
+  "org.gnieh" %% "diffson-play-json" % "3.0.0")++ Seq(
+  "io.circe" %% "circe-core",
+  "io.circe" %% "circe-generic",
+  "io.circe" %% "circe-parser"
+).map(_ % "0.10.0")
 
 
 // Adds additional packages into Twirl
