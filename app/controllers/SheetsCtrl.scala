@@ -1,10 +1,13 @@
 package controllers
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 import engines.SheetsNode
 import javax.inject.Inject
-import model.SheetId
+import kvothe.api.{PlayerApi, SheetCreationRequest}
+import kvothe.pathd.PathdT
+import kvothe.pathd.syntax._
+import monix.eval.Task
 import play.api.mvc._
 
 class SheetsCtrl @Inject()(
@@ -12,26 +15,46 @@ class SheetsCtrl @Inject()(
   cc: ControllerComponents
 )(implicit executionContext: ExecutionContext) extends AbstractController(cc) {
 
+  def withUser[B](block: PlayerApi => B => Task[Result]): Request[AnyContent] => Future[Result]
+
+  def entries = Action.async(withUser[AnyContent] { playerApi =>
+    _ =>
+      pathd("sheets", "entries")(playerApi.sheets.entries).swap.map(Ok(_))
+  })
 
 
-  def all() = play.mvc.Results.TODO
+  def create = Action.async(withUser[SheetCreationRequest] { playerApi =>
+    body =>
+      pathd("sheets", "create")(playerApi.sheets.create(body)).swap.map(Ok(_))
+  })
 
-  def init() = play.mvc.Results.TODO
 
-  def versionsOf(sheetId: String) = play.mvc.Results.TODO
-
-  def versioned(sheetId: String, versionId: Option[String]) = play.mvc.Results.TODO
-
-  def patch(sheetId: String) = Action.withSession {
-    req =>
-      implicit userId =>
-        sheetsNode.patch(SheetId(sheetId))(null)
+  def data(sheetId: String, versionId: String) = Action.async(withUser[AnyContent] {
+    playerApi =>
+      _ =>
+        PathdT(pathd("sheets", "one")(playerApi.sheets.one(sheetId)).swap).flatMap {
+          maybeSheet =>
+            ???
+        }
         ???
+  })
+
+  def changelog(sheetId: String, versionId: String) = Action.async(withUser[AnyContent] {
+    playerApi =>
+      _ =>
+        playerApi.sheets.one(sheetId).map {
+          entries =>
+            Ok(Map("sheets" -> Map("entries" -> entries)))
+        }
+  })
+
+  def versionsOf(sheetId: String) = Action.async { request =>
+    ???
   }
 
-
-}
-object FindBetterName {
+  def update = Action.async { request =>
+    ???
+  }
 
 
 }
