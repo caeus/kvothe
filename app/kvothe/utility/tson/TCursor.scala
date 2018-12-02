@@ -1,0 +1,66 @@
+package kvothe.utility.tson
+
+import cats.FlatMap
+import cats._
+import cats.implicits._
+import Tson.{ArrayOf, DictOf, Empty, ValOf}
+
+import scala.language.higherKinds
+
+abstract class TCursor[F[_], A] {
+  def down[B](path: String)(f: A => F[B]): TCursor[F, B]
+
+  def downOpt[B](path: String)(f: A => F[Option[B]]): TCursor[F, B]
+
+  def downArr[B](path: String)(f: A => F[Seq[B]]): TCursor[F, B]
+
+  def downMap[B](path: String)(f: A => F[Map[String, B]]): TCursor[F, B]
+
+  def fold: F[Tson[A]]
+
+}
+
+class DefaultTCursor[F[_] : Monad, A](value: F[Tson[A]]) extends TCursor[F, A] {
+  def prop[Val](name: String,value: Tson[Val]): Tson[Val] = DictOf(Map(name -> value))
+
+  private def proceedWith[B](f: A => F[Tson[B]]): TCursor[F, B] =
+    TCursor.fromFTson(value.flatMap(
+      _.map(f).foldRec.map(_.flatMap(identity))
+    ))
+
+  override def down[B](path: String)(f: A => F[B]): TCursor[F, B] = {
+    proceedWith(f.andThen(_.map(b=>prop(path,ValOf(b)))))
+  }
+
+  override def downOpt[B](path: String)(f: A => F[Option[B]]): TCursor[F, B] = {
+    proceedWith(f.andThen(_.map{
+      maybeB=> prop(path,maybeB.map(ValOf(_)).getOrElse(Empty))
+    }))
+  }
+
+  override def downArr[B](path: String)(f: A => F[Seq[B]]): TCursor[F, B] = {
+    proceedWith(f.andThen(_.map{
+      seqOfB=>
+        prop(path,ArrayOf(seqOfB.map(ValOf(_))))
+    }))
+  }
+
+  override def downMap[B](path: String)(f: A => F[Map[String, B]]): TCursor[F, B] = {
+    proceedWith(f.andThen(_.map{
+      mapOfB=>
+        prop(path,DictOf(mapOfB.mapValues(ValOf(_))))
+    }))
+  }
+
+  override def fold: F[Tson[A]] = value
+}
+
+
+object TCursor {
+
+  def fromFTson[F[_] : Monad, A](tson: F[Tson[A]]): TCursor[F, A] = new DefaultTCursor(tson)
+
+  def fromTson[F[_] : Monad, A](tson: Tson[A]): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(tson))
+
+  def from[F[_] : Monad, A](value: A): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(ValOf(value)))
+}

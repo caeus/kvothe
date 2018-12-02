@@ -4,11 +4,10 @@
 # ~~~~
 
 # An example controller showing a sample home page
-GET         /                                                         controllers.HomeController.index
 GET         /v1/sheets/entries                                        controllers.SheetsCtrl.entries
 GET         /v1/sheets/:sheetId/versions                              controllers.SheetsCtrl.versionsOf(sheetId)
 POST        /v1/sheets/create                                         controllers.SheetsCtrl.create
-GET         /v1/sheets/:sheetId/versioned/:versionId/data             controllers.SheetsCtrl.versioned(sheetId,versionId)
+GET         /v1/sheets/:sheetId/versioned/:versionId/data             controllers.SheetsCtrl.data(sheetId,versionId)
 GET         /v1/sheets/:sheetId/versioned/:versionId/changelog        controllers.SheetsCtrl.changelog(sheetId,versionId)
 POST        /v1/sheets/:sheetId/update                                controllers.SheetsCtrl.update(sheetId)
 

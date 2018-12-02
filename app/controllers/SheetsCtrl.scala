@@ -1,58 +1,62 @@
 package controllers
 
-import scala.concurrent.{ExecutionContext, Future}
-
-import engines.SheetsNode
 import javax.inject.Inject
-import kvothe.api.{PlayerApi, SheetCreationRequest}
-import kvothe.pathd.PathdT
-import kvothe.pathd.syntax._
+import kvothe.Ctx
+import kvothe.api.{DefaultPlayerApi, PlayerApi}
+import kvothe.domain.UserId
+import kvothe.utility.tson.TCursor
 import monix.eval.Task
+import monix.execution.Scheduler
+import play.api.libs.circe.Circe
+import play.api.libs.json.Json
 import play.api.mvc._
 
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
+
 class SheetsCtrl @Inject()(
-  sheetsNode: SheetsNode,
-  cc: ControllerComponents
-)(implicit executionContext: ExecutionContext) extends AbstractController(cc) {
-
-  def withUser[B](block: PlayerApi => B => Task[Result]): Request[AnyContent] => Future[Result]
-
-  def entries = Action.async(withUser[AnyContent] { playerApi =>
-    _ =>
-      pathd("sheets", "entries")(playerApi.sheets.entries).swap.map(Ok(_))
-  })
+                            ctx: Ctx,
+                            cc: ControllerComponents
+                          )(implicit scheduler: Scheduler) extends AbstractController(cc)
+  with Circe {
 
 
-  def create = Action.async(withUser[SheetCreationRequest] { playerApi =>
-    body =>
-      pathd("sheets", "create")(playerApi.sheets.create(body)).swap.map(Ok(_))
-  })
+  def withUser[B](block: PlayerApi => B => Task[Result]): Request[AnyContent] => Future[Result] = ???
 
 
-  def data(sheetId: String, versionId: String) = Action.async(withUser[AnyContent] {
-    playerApi =>
-      _ =>
-        PathdT(pathd("sheets", "one")(playerApi.sheets.one(sheetId)).swap).flatMap {
-          maybeSheet =>
-            ???
-        }
-        ???
-  })
+  //  withUser{api => _ =>
+  //    val asd = Chain[Task,PlayerApi[Task]](api).down("sheets")(_.sheets)
+  //    asd.down("")(_.entries)
+  //    ???
+  //  }
 
-  def changelog(sheetId: String, versionId: String) = Action.async(withUser[AnyContent] {
-    playerApi =>
-      _ =>
-        playerApi.sheets.one(sheetId).map {
-          entries =>
-            Ok(Map("sheets" -> Map("entries" -> entries)))
-        }
-  })
+  val playerId = UserId("caeus")
+
+
+  def entries = Action.async {
+    req =>
+
+      TCursor.from[Task, PlayerApi](new DefaultPlayerApi(ctx, playerId))
+        .down("sheets")(api => Task.eval(api.sheets))
+        .downArr("entries")(_.entries)
+        .fold.runAsync
+        .map(t => Ok(Json.toJson(t)))
+
+  }
+
+
+  def create = Action.async(_ => ???)
+
+
+  def data(sheetId: String, versionId: String) = Action.async(_ => ???)
+
+  def changelog(sheetId: String, versionId: String) = Action.async(_ => ???)
 
   def versionsOf(sheetId: String) = Action.async { request =>
     ???
   }
 
-  def update = Action.async { request =>
+  def update(sheetId: String) = Action.async { request =>
     ???
   }
 
