@@ -13,12 +13,9 @@ sealed abstract class Tson[+A] {
 
 }
 
-class EffTsonOps[F[_], A](val tson: Tson[F[A]]) extends AnyVal {
-  def foldRec(implicit m: Monad[F]): F[Tson[A]] = Tson.fold(tson)
-}
+
 
 object Tson {
-
 
   case class ValOf[+A](value: A) extends Tson[A] {
 
@@ -56,11 +53,11 @@ object Tson {
     override def flatMap[B](f: Nothing => Tson[B]): Tson[B] = this
   }
 
-  implicit def effTsonOps[F[_], A](tson: Tson[F[A]]): EffTsonOps[F, A] = new EffTsonOps[F, A](tson)
+  implicit class FTsonOps[F[_], A](val tson: Tson[F[A]]) extends AnyVal {
+    def foldRec(implicit m: Monad[F]): F[Tson[A]] = Tson.fold(tson)
+  }
 
   private[tson] def fold[F[_] : Monad, A](tson: Tson[F[A]]): F[Tson[A]] = {
-    type StringMap[X] = Map[String, X]
-
     def recFold(tson: Tson[F[A]]): F[Tson[A]] = {
       tson match {
         case ValOf(fa) => fa.map(ValOf(_))
