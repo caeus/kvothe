@@ -1,11 +1,9 @@
 package kvothe.utility.tson
 
 import cats._
-import cats.data._
 import cats.implicits._
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.language.reflectiveCalls
+import scala.language.{higherKinds, implicitConversions}
 
 sealed abstract class Tson[+A] {
 
