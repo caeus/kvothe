@@ -1,12 +1,10 @@
 import kvothe.domain.UserId
-import kvothe.utility.KvotheWriters
+import kvothe.utility.json.{KvotheReaders, KvotheWriters}
 import monix.eval.Task
 import monix.execution.Scheduler
 import play.api.mvc._
 
-package object controllers extends KvotheWriters {
-
-
+package object controllers extends KvotheWriters with KvotheReaders {
 
 
   implicit class AuthSessionOps[A](builder: ActionBuilder[Request, A]) {

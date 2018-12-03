@@ -1,6 +1,6 @@
-package kvothe.repos
+package kvothe.depos
 
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
 import gnieh.diffson.Part
 import kvothe.domain._
@@ -11,7 +11,6 @@ import org.scalatestplus.play._
 import org.scalatestplus.play.guice._
 import play.api.libs.json.{JsObject, JsString}
 import play.api.test._
-
 import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.ExecutionContext
@@ -27,7 +26,7 @@ import scala.concurrent.duration._
 class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
 
 
-  val testSheetsRepoRoot = Paths.get("internal/test/sheets")
+  val testSheetsRepoRoot: Path = Paths.get("internal/test/sheets")
 
   private implicit class SyncRunnable[T](task: Task[T]) {
     def unsafeRunSync(implicit executionContext: Scheduler): T = {
@@ -42,30 +41,30 @@ class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
   "GitSheetsRepo" should {
 
     "Create empty sheet" in {
-      implicit val executionContext = inject[Scheduler]
-      inject[SheetsIO].init(SheetInit(SheetId("ezra"), JsObject.empty, UserId("me"))).unsafeRunSync
+      implicit val scheduler: Scheduler = inject[Scheduler]
+      inject[SheetsDepot].init(SheetInit(SheetId("ezra"), JsObject.empty, UserId("me"))).unsafeRunSync
 
-      inject[SheetsIO].init(SheetInit(SheetId("ezra"), JsObject.empty, UserId("me"))).unsafeRunSync mustBe false
+      inject[SheetsDepot].init(SheetInit(SheetId("ezra"), JsObject.empty, UserId("me"))).unsafeRunSync mustBe false
 
 
     }
 
     "Get sheet by Id" in {
 
-      implicit val executionContext = inject[Scheduler]
-      val sheet = inject[SheetsIO].versioned(SheetId("ezra"))(None).unsafeRunSync
+      implicit val scheduler: Scheduler = inject[Scheduler]
+      val sheet = inject[SheetsDepot].versioned(SheetId("ezra"),None).unsafeRunSync
 
       sheet.get.data mustEqual JsObject.empty
 
       a[Exception] mustBe thrownBy {
-        inject[SheetsIO].versioned(SheetId("lorenz"))(None).unsafeRunSync mustBe false
+        inject[SheetsDepot].versioned(SheetId("lorenz"),None).unsafeRunSync mustBe false
       }
     }
 
 
     "Get revisions of sheet" in {
-      implicit val executionContext = inject[Scheduler]
-      val revisions = inject[SheetsIO].versions(SheetId("ezra"))
+      implicit val scheduler: Scheduler = inject[Scheduler]
+      val revisions = inject[SheetsDepot].versions(SheetId("ezra"))
 
         .unsafeRunSync
       revisions.length mustBe 1
@@ -73,7 +72,7 @@ class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
       revisions.head.author mustEqual UserId("me")
 
       a[Exception] mustBe thrownBy {
-        inject[SheetsIO].versions(SheetId("lorenz")).unsafeRunSync
+        inject[SheetsDepot].versions(SheetId("lorenz")).unsafeRunSync
       }
 
       //
@@ -81,17 +80,16 @@ class SheetsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
 
     "Patch sheet" in {
       import gnieh.diffson.playJson._
-      val asd: immutable.Seq[Part] = JsonPointer(null).path
-      implicit val executionContext = inject[Scheduler]
-      val version = inject[SheetsIO].patchSheet(SheetId("ezra"))(
-        SheetPatch2(data = JsonPatch(Add(Queue(Left("name")), JsString("ezra"))), comment = "Set name", author = UserId("me"))).unsafeRunSync
-      val versions = inject[SheetsIO].versions(SheetId("ezra")).unsafeRunSync
+      implicit val scheduler: Scheduler = inject[Scheduler]
+      val version = inject[SheetsDepot].update(SheetId("ezra"),
+        SheetPatch(data = JsonPatch(Add(Queue(Left("name")), JsString("ezra"))), comment = "Set name", author = UserId("me"))).unsafeRunSync
+      val versions = inject[SheetsDepot].versions(SheetId("ezra")).unsafeRunSync
 
       versions.head mustEqual version
-      inject[SheetsIO].versioned(SheetId("ezra"))(None)
+      inject[SheetsDepot].versioned(SheetId("ezra"),None)
         .unsafeRunSync.get.data.as[JsObject].value("name").as[String] mustEqual "ezra"
 
-      inject[SheetsIO].versioned(SheetId("ezra"))(Some(versions.tail.head.id))
+      inject[SheetsDepot].versioned(SheetId("ezra"),Some(versions.tail.head.id))
         .unsafeRunSync.get.data mustEqual JsObject.empty
 
 

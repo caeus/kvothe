@@ -58,9 +58,14 @@ class DefaultTCursor[F[_] : Monad, A](value: F[Tson[A]]) extends TCursor[F, A] {
 
 object TCursor {
 
-  def fromFTson[F[_] : Monad, A](tson: F[Tson[A]]): TCursor[F, A] = new DefaultTCursor(tson)
+  private[TCursor] class Builder[F[_]](implicit monad:Monad[F]){
+    def simple[A](value:A): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(ValOf(value)))
 
-  def fromTson[F[_] : Monad, A](tson: Tson[A]): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(tson))
+    def tson[A](value:Tson[A]): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(value))
 
-  def from[F[_] : Monad, A](value: A): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(ValOf(value)))
+    def raw[A](value:F[Tson[A]]):TCursor[F, A] = new DefaultTCursor(value)
+  }
+
+  def apply[F[_]:Monad]: Builder[F]=new Builder()
+
 }

@@ -1,4 +1,4 @@
-package kvothe.repos
+package kvothe.depos
 
 
 import com.google.inject.{ImplementedBy, Inject}
@@ -7,8 +7,8 @@ import kvothe.domain.{Grant, SheetId, UserId}
 import kvothe.utility.git.GitExecutor
 import monix.eval.Task
 
-@ImplementedBy(classOf[GrantsGitIO])
-trait GrantsIO {
+@ImplementedBy(classOf[GrantsGitDepot])
+trait GrantsDepot {
 
   def allOf(userId: UserId): Task[Seq[Grant]]
 
@@ -19,7 +19,7 @@ trait GrantsIO {
 }
 
 @Singleton
-class GrantsGitIO @Inject()(@Named("grants") executor: GitExecutor) extends GrantsIO {
+class GrantsGitDepot @Inject()(@Named("grants") executor: GitExecutor) extends GrantsDepot {
   import kvothe.utility.git.types.cmds._
 
   override def allOf(userId: UserId): Task[Seq[Grant]] = {
@@ -52,7 +52,6 @@ class GrantsGitIO @Inject()(@Named("grants") executor: GitExecutor) extends Gran
     executor exec (for {
       _ <- G.checkout("master")
       exists <- F.exists(s"${userId.value}/${sheetId.value}")
-      _ = println(s"WTF $exists = ${userId.value}/${sheetId.value}")
       _ <- if (!exists) F.touch(s"${userId.value}/${sheetId.value}")
       else pure(())
     } yield

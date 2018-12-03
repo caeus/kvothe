@@ -18,12 +18,12 @@ class DefaultSheetApi(ctx: Ctx, playerId: UserId, grant: Grant) extends SheetApi
   override def versions: Task[Seq[SheetVersionEntry]] = ctx.sheetsIO.versions(grant.sheetId)
 
   override def versioned(version: Option[String]): Task[Option[VersionedSheetApi]] =
-    ctx.sheetsIO.versioned(grant.sheetId)(version.map(SheetVersionId.apply)).map { v =>
+    ctx.sheetsIO.versioned(grant.sheetId,version.map(SheetVersionId.apply)).map { v =>
       v.map(x => new DefaultVersionedSheetApi(ctx, grant, x))
     }
 
   override def update(request: SheetUpdateRequest): Task[SheetUpdateResponse] = {
-    ctx.sheetsIO.patchSheet(grant.sheetId)(SheetPatch2(data = request.data,
+    ctx.sheetsIO.update(grant.sheetId,SheetPatch(data = request.data,
       comment = request.comment,
       author = playerId)).map {
       entry: SheetVersionEntry =>

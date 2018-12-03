@@ -1,15 +1,16 @@
 package kvothe.api
 
+import scala.language.higherKinds
+
 import kvothe.Ctx
 import kvothe.domain._
 import monix.eval.Task
-
-import scala.language.higherKinds
+import play.api.libs.json.JsValue
 
 trait SheetsApi {
   def entries: Task[Seq[SheetEntry]]
 
-  def one(id: String): Task[Option[SheetApi]]
+  def one(id: SheetId): Task[Option[SheetApi]]
 
   def create(request: SheetCreationRequest): Task[SheetCreationResponse]
 }
@@ -23,12 +24,17 @@ class DefaultSheetsApi(ctx: Ctx, playerId: UserId) extends SheetsApi {
       }
   }
 
-  override def one(id: String): Task[Option[SheetApi]] = ctx.grantsIO.bySheetId(
-    playerId,
-    SheetId(id)
-  ).map(_.map(grant => new DefaultSheetApi(ctx, playerId, grant)))
+  override def one(id: SheetId): Task[Option[SheetApi]] = ctx.grantsIO.bySheetId(playerId, id)
+    .map(_.map(grant => new DefaultSheetApi(ctx, playerId, grant)))
 
   override def create(request: SheetCreationRequest): Task[SheetCreationResponse] = {
-    ???
+    ctx.grantsIO.bySheetId(playerId, request.id).flatMap {
+      case Some(_) => Task.raiseError(new Exception("YISSS it already exists"))
+      case None => ctx.sheetsIO.init(SheetInit(id = request.id: SheetId,
+        data = request.data: JsValue,
+        author = playerId: UserId))
+        .map(SheetCreationResponse.apply)
+    }
+
   }
 }

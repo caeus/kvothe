@@ -1,4 +1,4 @@
-package kvothe.repos
+package kvothe.depos
 
 import java.nio.file.Paths
 
@@ -20,7 +20,7 @@ import scala.concurrent.duration._
   * For more information, see https://www.playframework.com/documentation/latest/ScalaTestingWithScalaTest
   *
   */
-class GrantsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
+class GrantsGitDepotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
 
 
   val testGrantsRepoRoot = Paths.get("internal/test/grants")
@@ -41,11 +41,11 @@ class GrantsGitIOSpec extends PlaySpec with GuiceOneAppPerTest with Injecting wi
       implicit val executionContext = inject[Scheduler]
 
 
-      inject[GrantsIO].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isEmpty mustBe true
-      inject[GrantsIO].grantTo(UserId("caeus"), SheetId("ezra")).unsafeRunSync
+      inject[GrantsDepot].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isEmpty mustBe true
+      inject[GrantsDepot].grantTo(UserId("caeus"), SheetId("ezra")).unsafeRunSync
 
-      inject[GrantsIO].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isDefined mustBe true
-      inject[GrantsIO].allOf(UserId("caeus")).unsafeRunSync.length mustBe 1
+      inject[GrantsDepot].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isDefined mustBe true
+      inject[GrantsDepot].allOf(UserId("caeus")).unsafeRunSync.length mustBe 1
 
     }
 

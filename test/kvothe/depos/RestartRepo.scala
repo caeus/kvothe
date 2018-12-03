@@ -1,4 +1,4 @@
-package kvothe.repos
+package kvothe.depos
 
 import java.nio.file.{Files, Path, SimpleFileVisitor}
 

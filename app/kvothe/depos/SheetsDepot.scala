@@ -1,4 +1,6 @@
-package kvothe.repos
+package kvothe.depos
+
+import scala.reflect.ClassTag
 
 import akka.util.ByteString
 import com.google.inject.{ImplementedBy, Inject}
@@ -10,28 +12,27 @@ import kvothe.utility.git.types.cmds._
 import monix.eval.Task
 import play.api.libs.json.{JsObject, Json}
 
-import scala.reflect.ClassTag
 
-
-@ImplementedBy(classOf[SheetsGitIO])
-trait SheetsIO {
-
+@ImplementedBy(classOf[SheetsGitDepot])
+trait SheetsDepot {
 
   def versions(sheetId: SheetId): Task[Seq[SheetVersionEntry]]
 
-  def versioned(sheetId: SheetId)
-    (versionId: Option[SheetVersionId] = None): Task[Option[VersionedSheet]]
+  def versioned(
+    sheetId: SheetId,
+    versionId: Option[SheetVersionId] = None
+  ): Task[Option[VersionedSheet]]
 
   def init(seed: SheetInit): Task[Boolean]
 
-  def patchSheet(sheetId: SheetId)(patch: SheetPatch2): Task[SheetVersionEntry]
+  def update(sheetId: SheetId, patch: SheetPatch): Task[SheetVersionEntry]
 
-  def sheetPatch(sheetId: SheetId)(version: SheetVersionId): Task[Option[SheetPatch2]]
+  def changelog(sheetId: SheetId, version: SheetVersionId): Task[Option[SheetPatch]]
 }
 
 
 @Singleton
-class SheetsGitIO @Inject()(@Named("sheets")gitRepo: GitExecutor) extends SheetsIO {
+class SheetsGitDepot @Inject()(@Named("sheets") gitRepo: GitExecutor) extends SheetsDepot {
 
 
   private def toVersion(commitRef: CommitRef): SheetVersionEntry = SheetVersionEntry(id = SheetVersionId(commitRef.id),
@@ -78,8 +79,10 @@ class SheetsGitIO @Inject()(@Named("sheets")gitRepo: GitExecutor) extends Sheets
   }
 
 
-  override def versioned(sheetId: SheetId)
-    (versionId: Option[SheetVersionId]): Task[Option[VersionedSheet]] = {
+  override def versioned(
+    sheetId: SheetId,
+    versionId: Option[SheetVersionId]
+  ): Task[Option[VersionedSheet]] = {
     withLazyContent[Option[VersionedSheet]](sheetId, versionId.map(_.value).getOrElse("master")) {
       case Some(reader) =>
         for {
@@ -97,8 +100,10 @@ class SheetsGitIO @Inject()(@Named("sheets")gitRepo: GitExecutor) extends Sheets
     }
   }
 
-  override def patchSheet(sheetId: SheetId)
-    (patch: SheetPatch2): Task[SheetVersionEntry] = withLazyContent[SheetVersionEntry](sheetId) {
+  override def update(
+    sheetId: SheetId,
+    patch: SheetPatch
+  ): Task[SheetVersionEntry] = withLazyContent[SheetVersionEntry](sheetId) {
     case Some(reader) =>
       for {
         content <- reader
@@ -112,8 +117,10 @@ class SheetsGitIO @Inject()(@Named("sheets")gitRepo: GitExecutor) extends Sheets
       }
   }
 
-  override def sheetPatch(sheetId: SheetId)
-    (version: SheetVersionId): Task[Option[SheetPatch2]] = ???
+  override def changelog(
+    sheetId: SheetId,
+    version: SheetVersionId
+  ): Task[Option[SheetPatch]] = ???
 }
 
 
