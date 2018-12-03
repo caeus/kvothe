@@ -17,7 +17,7 @@ class DefaultVersionedSheetApi(ctx: Ctx,
                                grant: Grant,
                                versionedSheet: VersionedSheet
                               ) extends VersionedSheetApi {
-  override def changelog: Task[VersionChangelog] = Task.pure(VersionChangelog())
+  override def changelog: Task[VersionChangelog] = Task.pure(VersionChangelog(""))
 
   override def data: Task[JsValue] = Task.pure(versionedSheet.data)
 }

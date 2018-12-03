@@ -1,4 +1,4 @@
-package kvothe.depos
+package kvothe.depots
 
 import java.nio.file.{Path, Paths}
 

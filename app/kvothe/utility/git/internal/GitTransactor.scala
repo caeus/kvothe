@@ -1,6 +1,5 @@
 package kvothe.utility.git.internal
 
-import java.io.File
 import java.nio.file._
 
 import scala.util.{Failure, Success, Try}
@@ -18,9 +17,7 @@ import kvothe.utility.git.types.{CommitRef, GitBackedCommit}
 
 class GitTransactor(repo: Git) extends Actor {
 
-
   val interpreter = new GitScriptInterpreter(repo)
-
 
   override def receive: Receive = {
     case GitScript(tx) =>
@@ -34,7 +31,6 @@ class GitTransactor(repo: Git) extends Actor {
   }
 }
 
-
 object GitTransactor {
   def props(repo: Git) = Props(new GitTransactor(repo))
 }
@@ -42,8 +38,7 @@ object GitTransactor {
 class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
   import scala.collection.JavaConverters._
 
-  val rootDir = git.getRepository.getWorkTree.toPath
-
+  val rootDir: Path = git.getRepository.getWorkTree.toPath
 
   override def apply[A](fa: GitOp[A]): Try[A] = {
 
@@ -69,7 +64,7 @@ class GitScriptInterpreter(git: Git) extends (GitOp ~> Try) {
         ()
       }
       case F.ListFiles(fileName) => Try {
-        Files.list(Paths.get(fileName)).iterator().asScala.toSeq
+        Files.list(rootDir.resolve(fileName)).iterator().asScala.toSeq
       }
       case G.Checkout(branchName) => Try {
         git.checkout().setName(branchName).call()

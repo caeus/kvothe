@@ -12,7 +12,7 @@ package object domain {
     author: UserId
   )
 
-  case class VersionChangelog()
+  case class VersionChangelog(id:String/*todo add smth relevant*/)
 
   import gnieh.diffson.playJson.JsonPatch
 

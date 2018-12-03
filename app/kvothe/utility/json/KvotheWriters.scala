@@ -15,10 +15,12 @@ trait KvotheWriters{
       case ArrayOf(seq) => JsArray(seq.map(self.writes))
     }
   }
+  import  play.api.libs.json._
+  implicit val userIdWrites: Writes[UserId] = Writes[UserId](id=>JsString(id.value))
   implicit val sheetEntryWrites: OWrites[SheetEntry] = Json.writes[SheetEntry]
   implicit val sheetCreationResponseWrites: OWrites[SheetCreationResponse] = Json.writes[SheetCreationResponse]
   implicit val versionChangelogWrites: OWrites[VersionChangelog] = Json.writes[VersionChangelog]
   implicit val sheetVersionEntryWrites: OWrites[SheetVersionEntry] = Json.writes[SheetVersionEntry]
-  implicit val sheetVersionIdWrites: OWrites[SheetVersionId] = Json.writes[SheetVersionId]
+  implicit val sheetVersionIdWrites: Writes[SheetVersionId] = Writes[SheetVersionId](id=>JsString(id.value))
   implicit val sheetUpdateResponseWrites: OWrites[SheetUpdateResponse] = Json.writes[SheetUpdateResponse]
 }

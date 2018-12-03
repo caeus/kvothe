@@ -1,12 +1,12 @@
 package kvothe.utility.json
 
+import cats.MonadError
 import kvothe.domain._
-import kvothe.utility.tson.Tson
-import kvothe.utility.tson.Tson.{ArrayOf, DictOf, Empty, ValOf}
 import play.api.libs.json._
-
+import gnieh.diffson.playJson.DiffsonProtocol._
 trait KvotheReaders{
 
+  implicit val sheetIdReader = Reads.of[String].map(SheetId)
   implicit val sheetCreationRequestReader = Json.reads[SheetCreationRequest]
   implicit val sheetUpdateRequestReader = Json.reads[SheetUpdateRequest]
 }

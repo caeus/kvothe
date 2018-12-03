@@ -1,4 +1,4 @@
-package kvothe.depos
+package kvothe.depots
 
 
 import com.google.inject.{ImplementedBy, Inject}

@@ -28,7 +28,7 @@ class TCursorSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with B
   "TCursor" should {
 
     "just work with Idmonad" in {
-      val cursor = TCursor.from[Id, String]("Hello")
+      val cursor = TCursor[Id].pure("Hello")
         .down("normalProp")(_ + "World")
         .downMap("mapProp") { asd =>
           asd.groupBy(_.toString)
@@ -44,7 +44,7 @@ class TCursorSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with B
     }
     "just work with TaskMonad" in {
       import monix.execution.Scheduler.Implicits.global
-      val cursor: Tson[Char] = TCursor.from[Task, String]("Hello")
+      val cursor: Tson[Char] = TCursor[Task].pure("Hello")
         .down("normalProp") { word =>
           Task.eval(word + "World")
         }

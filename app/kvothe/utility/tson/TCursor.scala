@@ -24,7 +24,7 @@ class DefaultTCursor[F[_] : Monad, A](value: F[Tson[A]]) extends TCursor[F, A] {
   def prop[Val](name: String,value: Tson[Val]): Tson[Val] = DictOf(Map(name -> value))
 
   private def proceedWith[B](f: A => F[Tson[B]]): TCursor[F, B] =
-    TCursor.fromFTson(value.flatMap(
+    TCursor[F].from(value.flatMap(
       _.map(f).foldRec.map(_.flatMap(identity))
     ))
 
@@ -59,11 +59,11 @@ class DefaultTCursor[F[_] : Monad, A](value: F[Tson[A]]) extends TCursor[F, A] {
 object TCursor {
 
   private[TCursor] class Builder[F[_]](implicit monad:Monad[F]){
-    def simple[A](value:A): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(ValOf(value)))
+    def pure[A](value:A): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(ValOf(value)))
 
-    def tson[A](value:Tson[A]): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(value))
+    def lift[A](value:Tson[A]): TCursor[F, A] = new DefaultTCursor(Monad[F].pure(value))
 
-    def raw[A](value:F[Tson[A]]):TCursor[F, A] = new DefaultTCursor(value)
+    def from[A](value:F[Tson[A]]):TCursor[F, A] = new DefaultTCursor(value)
   }
 
   def apply[F[_]:Monad]: Builder[F]=new Builder()
