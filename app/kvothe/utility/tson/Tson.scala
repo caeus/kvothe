@@ -1,11 +1,9 @@
 package kvothe.utility.tson
 
-import cats._
-import cats.data._
-import cats.implicits._
+import scala.language.{higherKinds, reflectiveCalls}
 
-import scala.annotation.unchecked.uncheckedVariance
-import scala.language.reflectiveCalls
+import cats._
+import cats.implicits._
 
 sealed abstract class Tson[+A] {
 
@@ -15,12 +13,8 @@ sealed abstract class Tson[+A] {
 
 }
 
-class EffTsonOps[F[_], A](val tson: Tson[F[A]]) extends AnyVal {
-  def foldRec(implicit m: Monad[F]): F[Tson[A]] = Tson.fold(tson)
-}
 
 object Tson {
-
 
   case class ValOf[+A](value: A) extends Tson[A] {
 
@@ -43,6 +37,7 @@ object Tson {
 
   }
 
+
   case class DictOf[F[_], +A](value: Map[String, Tson[A]]) extends Tson[A] {
     private type StringMap[X] = Map[String, X]
 
@@ -58,9 +53,11 @@ object Tson {
     override def flatMap[B](f: Nothing => Tson[B]): Tson[B] = this
   }
 
-  implicit def effTsonOps[F[_], A](tson: Tson[F[A]]): EffTsonOps[F, A] = new EffTsonOps[F, A](tson)
+  implicit class TsonFOps[F[_], A](val tson: Tson[F[A]]) extends AnyVal {
+    def sequence(implicit m: Monad[F]): F[Tson[A]] = Tson.sequence(tson)
+  }
 
-  private[tson] def fold[F[_] : Monad, A](tson: Tson[F[A]]): F[Tson[A]] = {
+  private[tson] def sequence[F[_] : Monad, A](tson: Tson[F[A]]): F[Tson[A]] = {
     type StringMap[X] = Map[String, X]
 
     def recFold(tson: Tson[F[A]]): F[Tson[A]] = {
@@ -72,11 +69,14 @@ object Tson {
           map.mapValues(recFold).map {
             case (path, value) => value.map(path -> _)
           }.toList.sequence.map(_.toMap).map(DictOf(_))
-        case empty@Empty =>
+        case empty @ Empty =>
           Monad[F].pure(empty)
       }
     }
+
     recFold(tson)
   }
+
+  def pure[A](value: A): Tson[A] = ValOf(value)
 
 }

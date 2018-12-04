@@ -33,10 +33,10 @@ class SheetsCtrl @Inject()(
 
   def entries = Action.async {
     req =>
-      TCursor[Task].pure(PlayerApi(ctx, playerId))
+      TCursor.pure[Task](PlayerApi(ctx, playerId))
         .down("sheets")(api => Task.eval(api.sheets))
         .downArr("entries")(_.entries)
-        .fold.runAsync
+        .collapse.runAsync
         .map(t => Ok(Json.toJson(t)))
 
   }
@@ -44,49 +44,49 @@ class SheetsCtrl @Inject()(
 
   def create = Action.async(parse.json[SheetCreationRequest]) {
     req =>
-      TCursor[Task].pure(PlayerApi(ctx, playerId))
+      TCursor.pure[Task](PlayerApi(ctx, playerId))
         .down("sheets")(api => Task.eval(api.sheets))
         .down("create")(_.create(req.body))
-        .fold.runAsync
+        .collapse.runAsync
         .map(t => Ok(Json.toJson(t)))
   }
 
 
   def data(sheetId: String, versionId: String) = Action.async { _ =>
-    TCursor[Task].pure(PlayerApi(ctx, playerId))
+    TCursor.pure[Task](PlayerApi(ctx, playerId))
       .down("sheets")(api => Task.eval(api.sheets))
       .downOpt("one")(_.one(SheetId(sheetId)))
       .downOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
       .down("data")(_.data)
-      .fold.runAsync
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def changelog(sheetId: String, versionId: String) = Action.async { _ =>
-    TCursor[Task].pure(PlayerApi(ctx, playerId))
+    TCursor.pure[Task](PlayerApi(ctx, playerId))
       .down("sheets")(api => Task.eval(api.sheets))
       .downOpt("one")(_.one(SheetId(sheetId)))
       .downOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
       .down("changelog")(_.changelog)
-      .fold.runAsync
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def versionsOf(sheetId: String) = Action.async { request =>
-    TCursor[Task].pure(PlayerApi(ctx, playerId))
+    TCursor.pure[Task](PlayerApi(ctx, playerId))
       .down("sheets")(api => Task.eval(api.sheets))
       .downOpt("one")(_.one(SheetId(sheetId)))
       .down("versions")(_.versions)
-      .fold.runAsync
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def update(sheetId: String) = Action.async(parse.json[SheetUpdateRequest]) { request =>
-    TCursor[Task].pure(PlayerApi(ctx, playerId))
+    TCursor.pure[Task](PlayerApi(ctx, playerId))
       .down("sheets")(api => Task.eval(api.sheets))
       .downOpt("one")(_.one(SheetId(sheetId)))
       .down("update")(_.update(request.body))
-      .fold.runAsync
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
