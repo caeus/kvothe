@@ -18,31 +18,34 @@ object Action {
 }
 
 
-trait Req[Fragment, Query, Body] {
+trait Req[Segment, Query, Body] {
   def next: NormalReq
-  def fragment: Fragment
+  def segment: Segment
+  def rawSegment: String
   def query: Query
   def body: Body
-  def build[In](in: In): Action[In, Fragment, Query, Body]
+  def build[In](in: In): Action[In, Segment, Query, Body]
 }
 object Req {
-  def apply[In, Fragment, Query, Body](
-    fragment: Fragment,
+  def apply[In, Segment, Query, Body](
+    segment: Segment,
+    rawSegment: String,
     query: Query,
     body: Body
-  ): Req[Fragment, Query, Body] = {
-    new DefaultReq(fragment: Fragment, query: Query, body: Body)
+  ): Req[Segment, Query, Body] = {
+    new DefaultReq(segment: Segment, rawSegment, query: Query, body: Body)
   }
 }
 
-class DefaultReq[Fragment, Query, Body](
-  val fragment: Fragment,
+class DefaultReq[Segment, Query, Body](
+  val segment: Segment,
+  val rawSegment: String,
   val query: Query,
   val body: Body
 )
-  extends Req[Fragment, Query, Body] {
+  extends Req[Segment, Query, Body] {
 
-  override def build[In](in: In): Action[In, Fragment, Query, Body] = ???
+  override def build[In](in: In): Action[In, Segment, Query, Body] = ???
 
   override def next: NormalReq = ???
 }
