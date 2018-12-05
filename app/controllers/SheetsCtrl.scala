@@ -7,7 +7,7 @@ import javax.inject.Inject
 import kvothe.Ctx
 import kvothe.api.PlayerApi
 import kvothe.domain.{SheetCreationRequest, SheetId, SheetUpdateRequest, UserId}
-import kvothe.utility.tson.TCursor
+import kvothe.utility.tson.TPot
 import monix.eval.Task
 import monix.execution.Scheduler
 import play.api.libs.json.Json
@@ -33,10 +33,10 @@ class SheetsCtrl @Inject()(
 
   def entries = Action.async {
     req =>
-      TCursor.pure[Task](PlayerApi(ctx, playerId))
-        .down("sheets")(api => Task.eval(api.sheets))
-        .downArr("entries")(_.entries)
-        .fold.runAsync
+      TPot.pure[Task](PlayerApi(ctx, playerId))
+        .growVal("sheets")(api => Task.eval(api.sheets))
+        .growSeq("entries")(_.entries)
+        .collapse.runAsync
         .map(t => Ok(Json.toJson(t)))
 
   }
@@ -44,49 +44,49 @@ class SheetsCtrl @Inject()(
 
   def create = Action.async(parse.json[SheetCreationRequest]) {
     req =>
-      TCursor.pure[Task](PlayerApi(ctx, playerId))
-        .down("sheets")(api => Task.eval(api.sheets))
-        .down("create")(_.create(req.body))
-        .fold.runAsync
+      TPot.pure[Task](PlayerApi(ctx, playerId))
+        .growVal("sheets")(api => Task.eval(api.sheets))
+        .growVal("create")(_.create(req.body))
+        .collapse.runAsync
         .map(t => Ok(Json.toJson(t)))
   }
 
 
   def data(sheetId: String, versionId: String) = Action.async { _ =>
-    TCursor.pure[Task](PlayerApi(ctx, playerId))
-      .down("sheets")(api => Task.eval(api.sheets))
-      .downOpt("one")(_.one(SheetId(sheetId)))
-      .downOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
-      .down("data")(_.data)
-      .fold.runAsync
+    TPot.pure[Task](PlayerApi(ctx, playerId))
+      .growVal("sheets")(api => Task.eval(api.sheets))
+      .growOpt("one")(_.one(SheetId(sheetId)))
+      .growOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
+      .growVal("data")(_.data)
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def changelog(sheetId: String, versionId: String) = Action.async { _ =>
-    TCursor.pure[Task](PlayerApi(ctx, playerId))
-      .down("sheets")(api => Task.eval(api.sheets))
-      .downOpt("one")(_.one(SheetId(sheetId)))
-      .downOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
-      .down("changelog")(_.changelog)
-      .fold.runAsync
+    TPot.pure[Task](PlayerApi(ctx, playerId))
+      .growVal("sheets")(api => Task.eval(api.sheets))
+      .growOpt("one")(_.one(SheetId(sheetId)))
+      .growOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
+      .growVal("changelog")(_.changelog)
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def versionsOf(sheetId: String) = Action.async { request =>
-    TCursor.pure[Task](PlayerApi(ctx, playerId))
-      .down("sheets")(api => Task.eval(api.sheets))
-      .downOpt("one")(_.one(SheetId(sheetId)))
-      .down("versions")(_.versions)
-      .fold.runAsync
+    TPot.pure[Task](PlayerApi(ctx, playerId))
+      .growVal("sheets")(api => Task.eval(api.sheets))
+      .growOpt("one")(_.one(SheetId(sheetId)))
+      .growVal("versions")(_.versions)
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
   def update(sheetId: String) = Action.async(parse.json[SheetUpdateRequest]) { request =>
-    TCursor.pure[Task](PlayerApi(ctx, playerId))
-      .down("sheets")(api => Task.eval(api.sheets))
-      .downOpt("one")(_.one(SheetId(sheetId)))
-      .down("update")(_.update(request.body))
-      .fold.runAsync
+    TPot.pure[Task](PlayerApi(ctx, playerId))
+      .growVal("sheets")(api => Task.eval(api.sheets))
+      .growOpt("one")(_.one(SheetId(sheetId)))
+      .growVal("update")(_.update(request.body))
+      .collapse.runAsync
       .map(t => Ok(Json.toJson(t)))
   }
 
