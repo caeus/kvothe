@@ -2,7 +2,7 @@ package kvothe.util
 
 import cats._
 import io.circe.{Encoder, Json, JsonObject}
-import kvothe.utility.tson.{TPot, Tson}
+import kvothe.utility.vine.{VineT, Vine}
 import monix.eval.Task
 import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.play.PlaySpec
@@ -11,12 +11,12 @@ import play.api.test.Injecting
 
 import scala.concurrent.duration._
 
-class TPotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
+class VineTSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll {
 
-  implicit def encoder[A: Encoder]: Encoder[Tson[A]] {
-    def apply(tson: Tson[A]): Json
-  } = new Encoder[Tson[A]] {
-    override def apply(tson: Tson[A]): Json = tson.fold(
+  implicit def encoder[A: Encoder]: Encoder[Vine[A]] {
+    def apply(tson: Vine[A]): Json
+  } = new Encoder[Vine[A]] {
+    override def apply(tson: Vine[A]): Json = tson.fold(
       Json.Null,
       av => Encoder[A].apply(av),
       seq => Json.fromValues(seq.map(apply)),
@@ -27,7 +27,7 @@ class TPotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with Befo
   "TCursor" should {
 
     "just work with Idmonad" in {
-      val cursor = TPot.pure[Id]("Hello")
+      val cursor = VineT.pure[Id]("Hello")
         .growVal("normalProp")(_ + "World")
         .growMap("mapProp") { asd =>
           asd.groupBy(_.toString)
@@ -43,7 +43,7 @@ class TPotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with Befo
     }
     "just work with TaskMonad" in {
       import monix.execution.Scheduler.Implicits.global
-      val cursor: Tson[Char] = TPot.pure[Task]("Hello")
+      val cursor: Vine[Char] = VineT.pure[Task]("Hello")
         .growVal("normalProp") { word =>
           Task.eval(word + "World")
         }
@@ -58,7 +58,7 @@ class TPotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with Befo
         }
         .collapse.runSyncUnsafe(10.seconds)
 
-      println(Encoder[Tson[Char]].apply(cursor))
+      println(Encoder[Vine[Char]].apply(cursor))
     }
   }
 

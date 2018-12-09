@@ -4,7 +4,7 @@ import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 import cats._
 import cats.implicits._
-import kvothe.utility.tson.{TPot, Tson}
+import kvothe.utility.vine.{VineT, Vine}
 
 trait Branch[F[_], In, Format] {
 
@@ -20,8 +20,8 @@ object Branch {
                             qCompiler: Pipe[Seq[(String, String)], Try[Query]],
                             bCompiler: Pipe[NormalBody, Try[Body]],
                             resolver: Command[In, Fragment, Query, Body] => F[Out],
-                            collector: Out => Tson[EOut],
-                            delegate: Tree[F, EOut, Format]
+                            collector: Out => Vine[EOut],
+                            delegate: Grower[F, EOut, Format]
                           ): Branch[F, In, Format] =
 
     BranchImpl(
@@ -29,8 +29,8 @@ object Branch {
       qCompiler: Pipe[Seq[(String, String)], Try[Query]],
       bCompiler: Pipe[NormalBody, Try[Body]],
       resolver: Command[In, Fragment, Query, Body] => F[Out],
-      collector: Out => Tson[EOut],
-      delegate: Tree[F, EOut, Format]
+      collector: Out => Vine[EOut],
+      delegate: Grower[F, EOut, Format]
     )
 
   private[rost] case class BranchImpl[F[_] : Monad, In, Segment, Query,
@@ -39,8 +39,8 @@ object Branch {
                             qCompiler: Pipe[Seq[(String, String)], Try[Query]],
                             bCompiler: Pipe[NormalBody, Try[Body]],
                             resolver: Command[In, Segment, Query, Body] => F[Out],
-                            collector: Out => Tson[EOut],
-                            delegate: Tree[F, EOut, Format]
+                            collector: Out => Vine[EOut],
+                            delegate: Grower[F, EOut, Format]
                           ) extends Branch[F, In, Format] {
 
 
@@ -69,13 +69,13 @@ object Branch {
 
 trait Thunk[F[_], In, Format] {
 
-  def run(in: TPot[F, In]): F[Format]
+  def run(in: VineT[F, In]): F[Format]
 
 }
 
 object Thunk {
-  def leaf[F[_],In,Format](format: Pipe[Tson[In], Format])(implicit F:Monad[F]): Thunk[F,In,Format] =
-    (in: TPot[F, In]) => in.collapse.map(format.apply)
+  def leaf[F[_],In,Format](format: Pipe[Vine[In], Format])(implicit F:Monad[F]): Thunk[F,In,Format] =
+    (in: VineT[F, In]) => in.collapse.map(format.apply)
 
 
   private[rost] class BranchThunkImpl[F[_] : Monad, In, Segment,
@@ -84,9 +84,9 @@ object Thunk {
                                    resolver: Command[In, Segment, Query, Body] => F[Out],
                                    req: Request[Query, Body],
                                    next: Thunk[F, EOut, Format],
-                                   collector: Out => Tson[EOut]
+                                   collector: Out => Vine[EOut]
                                  ) extends Thunk[F, In, Format] {
-    override def run(in: TPot[F, In]): F[Format] = {
+    override def run(in: VineT[F, In]): F[Format] = {
       next.run(in.grow(segment.raw) {
         in =>
           resolver(Command(in,segment, req))
@@ -99,7 +99,7 @@ object Thunk {
                                   resolver: Command[In, Segment, Query, Body] => F[Out],
                                   req: Request[Query, Body],
                                   next: Thunk[F, EOut, Format],
-                                  collector: Out => Tson[EOut]
+                                  collector: Out => Vine[EOut]
                                  ): Thunk[F, In, Format] = new BranchThunkImpl(
     segment,
     resolver: Command[In, Segment, Query, Body] => F[Out],

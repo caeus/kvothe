@@ -1,7 +1,7 @@
 package kvothe
 
 import cats.Monad
-import kvothe.utility.tson.Tson
+import kvothe.utility.vine.Vine
 
 import scala.language.{higherKinds, implicitConversions}
 import scala.util.{Success, Try}
@@ -57,7 +57,7 @@ package object rost {
 
 
   trait BranchSealer[F[_], In, Out, Format] {
-    def into(schema: Tree[F, Out, Format]): Branch[F, In, Format]
+    def into(schema: Grower[F, Out, Format]): Branch[F, In, Format]
   }
 
 
@@ -70,21 +70,21 @@ package object rost {
     type RawSealer[Out] = BranchSealer[F, In, Out, Format]
     type RawCmd = Command[In, Segment, Query, Body]
 
-    def redge[Out, EOut](resolver: RawCmd => F[Out], collctor: Out => Tson[EOut]): BranchSealer[F, In, EOut, Format] =
-      (schema: Tree[F, EOut, Format]) => {
+    def redge[Out, EOut](resolver: RawCmd => F[Out], collctor: Out => Vine[EOut]): BranchSealer[F, In, EOut, Format] =
+      (schema: Grower[F, EOut, Format]) => {
         Branch(segmentMatcher, queryParser, bodyParser, resolver, collctor, schema)
       }
 
-    def id[Out](resolver: RawCmd => F[Out]): RawSealer[Out] = redge[Out, Out](resolver, Tson.pure)
+    def id[Out](resolver: RawCmd => F[Out]): RawSealer[Out] = redge[Out, Out](resolver, Vine.pure)
 
     def option[Out](resolver: RawCmd => F[Option[Out]]): RawSealer[Out] =
-      redge[Option[Out], Out](resolver, Tson.option)
+      redge[Option[Out], Out](resolver, Vine.option)
 
     def map[Out](resolver: RawCmd => F[Map[String, Out]]): RawSealer[Out] =
-      redge[Map[String, Out], Out](resolver, Tson.map)
+      redge[Map[String, Out], Out](resolver, Vine.map)
 
     def seq[Out](resolver: RawCmd => F[Seq[Out]]): RawSealer[Out] =
-      redge[Seq[Out], Out](resolver, Tson.seq)
+      redge[Seq[Out], Out](resolver, Vine.seq)
 
     def query[NewQuery](as: QueryParser[NewQuery]): BranchBuilder[F, In, Segment, NewQuery, Body, Format] =
       copy(queryParser = as)
@@ -94,7 +94,7 @@ package object rost {
   }
 
   class BranchSelectorBuilder[F[_] : Monad, In, Format] {
-    def path[Segment](regex: SegmentMatcher[Segment]): BranchBuilder[F, In, Segment, NormalQuery, String, Format] = {
+    def branch[Segment](regex: SegmentMatcher[Segment]): BranchBuilder[F, In, Segment, NormalQuery, String, Format] = {
       BranchBuilder[F, In, Segment, NormalQuery, String, Format](regex, Pipe.tryPure, Pipe.tryPure)
     }
   }

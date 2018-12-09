@@ -7,7 +7,7 @@ import javax.inject.Inject
 import kvothe.Ctx
 import kvothe.api.PlayerApi
 import kvothe.domain.{SheetCreationRequest, SheetId, SheetUpdateRequest, UserId}
-import kvothe.utility.tson.TPot
+import kvothe.utility.vine.VineT
 import monix.eval.Task
 import monix.execution.Scheduler
 import play.api.libs.json.Json
@@ -33,7 +33,7 @@ class SheetsCtrl @Inject()(
 
   def entries = Action.async {
     req =>
-      TPot.pure[Task](PlayerApi(ctx, playerId))
+      VineT.pure[Task](PlayerApi(ctx, playerId))
         .growVal("sheets")(api => Task.eval(api.sheets))
         .growSeq("entries")(_.entries)
         .collapse.runAsync
@@ -44,7 +44,7 @@ class SheetsCtrl @Inject()(
 
   def create = Action.async(parse.json[SheetCreationRequest]) {
     req =>
-      TPot.pure[Task](PlayerApi(ctx, playerId))
+      VineT.pure[Task](PlayerApi(ctx, playerId))
         .growVal("sheets")(api => Task.eval(api.sheets))
         .growVal("create")(_.create(req.body))
         .collapse.runAsync
@@ -53,7 +53,7 @@ class SheetsCtrl @Inject()(
 
 
   def data(sheetId: String, versionId: String) = Action.async { _ =>
-    TPot.pure[Task](PlayerApi(ctx, playerId))
+    VineT.pure[Task](PlayerApi(ctx, playerId))
       .growVal("sheets")(api => Task.eval(api.sheets))
       .growOpt("one")(_.one(SheetId(sheetId)))
       .growOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
@@ -63,7 +63,7 @@ class SheetsCtrl @Inject()(
   }
 
   def changelog(sheetId: String, versionId: String) = Action.async { _ =>
-    TPot.pure[Task](PlayerApi(ctx, playerId))
+    VineT.pure[Task](PlayerApi(ctx, playerId))
       .growVal("sheets")(api => Task.eval(api.sheets))
       .growOpt("one")(_.one(SheetId(sheetId)))
       .growOpt("versioned")(_.versioned(Some(versionId).filter(_ != "current")))
@@ -73,7 +73,7 @@ class SheetsCtrl @Inject()(
   }
 
   def versionsOf(sheetId: String) = Action.async { request =>
-    TPot.pure[Task](PlayerApi(ctx, playerId))
+    VineT.pure[Task](PlayerApi(ctx, playerId))
       .growVal("sheets")(api => Task.eval(api.sheets))
       .growOpt("one")(_.one(SheetId(sheetId)))
       .growVal("versions")(_.versions)
@@ -82,7 +82,7 @@ class SheetsCtrl @Inject()(
   }
 
   def update(sheetId: String) = Action.async(parse.json[SheetUpdateRequest]) { request =>
-    TPot.pure[Task](PlayerApi(ctx, playerId))
+    VineT.pure[Task](PlayerApi(ctx, playerId))
       .growVal("sheets")(api => Task.eval(api.sheets))
       .growOpt("one")(_.one(SheetId(sheetId)))
       .growVal("update")(_.update(request.body))

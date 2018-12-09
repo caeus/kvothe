@@ -12,25 +12,25 @@ import play.api.test.Injecting
 import scala.concurrent.duration._
 import scala.util.Try
 
-class TreeSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll with KvotheWriters {
+class GrowerSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll with KvotheWriters {
 
 
-  val node4 = Tree.fork[Task, Char, JsValue](_.path("optProp".seg).option {
+  val node4 = Grower.fork[Task, Char, JsValue](_.branch("optProp".seg).option {
     char =>
       Task eval Some(char.value).filter(_ != 'l').map(_.toString)
-  }.into(Tree.leaf[Task, String, JsValue]))
+  }.into(Grower.leaf[Task, String, JsValue]))
 
-  val node3 = Tree.fork[Task, String, JsValue](_.path("arrProp".seg).seq {
+  val node3 = Grower.fork[Task, String, JsValue](_.branch("arrProp".seg).seq {
     str =>
       Task eval str.value.toList
   }.into(node4))
 
-  val node2 = Tree.fork[Task, String, JsValue](_.path("mapProp".seg).map {
+  val node2 = Grower.fork[Task, String, JsValue](_.branch("mapProp".seg).map {
     greeting =>
       Task.eval(greeting.value.groupBy(_.toString))
   }.into(node3))
 
-  val node1 = Tree.fork[Task, String, JsValue](_.path[String]("normalProp".seg).id {
+  val node1 = Grower.fork[Task, String, JsValue](_.branch[String]("normalProp".seg).id {
     string => Task eval (string.value + "World")
   }.into(node2))
 

@@ -2,15 +2,15 @@ package kvothe.utility.json
 
 import kvothe.domain._
 import kvothe.rost.Pipe
-import kvothe.utility.tson.Tson
-import kvothe.utility.tson.Tson.{ArrayOf, DictOf, Empty, ValOf}
+import kvothe.utility.vine.Vine
+import kvothe.utility.vine.Vine.{ArrayOf, DictOf, Empty, ValOf}
 import play.api.libs.json._
 
 trait KvotheWriters {
 
-  implicit def tsonWrites[T](implicit T: Writes[T]): Writes[Tson[T]] = new Writes[Tson[T]] {
+  implicit def tsonWrites[T](implicit T: Writes[T]): Writes[Vine[T]] = new Writes[Vine[T]] {
     self =>
-    override def writes(tson: Tson[T]): JsValue = tson.fold(
+    override def writes(tson: Vine[T]): JsValue = tson.fold(
       JsNull,
       av => T.writes(av),
       seq => JsArray(seq.map(self.writes)),
@@ -18,8 +18,8 @@ trait KvotheWriters {
     )
   }
 
-  implicit def pipeWriter[T](implicit writes: Writes[Tson[T]]): Pipe[Tson[T], JsValue] =
-    Pipe[Tson[T], JsValue](writes.writes)
+  implicit def pipeWriter[T](implicit writes: Writes[Vine[T]]): Pipe[Vine[T], JsValue] =
+    Pipe[Vine[T], JsValue](writes.writes)
 
   import play.api.libs.json._
 
