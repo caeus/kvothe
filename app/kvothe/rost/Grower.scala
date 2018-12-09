@@ -7,6 +7,10 @@ import cats.Monad
 import kvothe.utility.vine.{Vine, VineT}
 
 abstract class Grower[F[_] : Monad, In, Format] {
+  def <:> : Grower[F,Map[String,In],Format] = ???
+  def ? : Grower[F,Option[In],Format] = ???
+  def <> : Grower[F,Seq[In],Format] = ???
+
   //Fixme body type should be something that allows laziness of reading
   final def handle(value: In, req: NormalReq): Try[F[Format]] = {
     compile(req).map {
