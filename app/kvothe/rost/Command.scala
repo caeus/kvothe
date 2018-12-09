@@ -1,15 +1,16 @@
 package kvothe.rost
 
-case class Command[In, Segment, Query, Body](value: In, segment: MatchedSegment[Segment], req: Request[Query, Body])
+case class Command[In, Segment, Query, Body](value: In, segment: Segment, req: Request[Query, Body])
 
 case class Request[Query, Body](
-                                 path: Vector[String],
-                                 cursor: Int,
+                                 path: List[String],
                                  query: Query,
                                  body: Body
                                ) {
-  def isLast: Boolean = cursor >= path.size
-  def currSegment=path.lift(cursor)
-  def next: Option[Request[Query, Body]] = if (isLast) None
-  else Some(Request(path, cursor + 1, query, body))
+
+  def currSegment: Option[String] =path.headOption
+  def next: Option[Request[Query, Body]] = path match {
+    case _ :: tail => Some(Request(tail,query,body))
+    case _ => None
+  }
 }

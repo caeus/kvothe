@@ -2,61 +2,143 @@ package kvothe.rost
 
 import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
+import cats._
+import cats.implicits._
+import kvothe.utility.vine.{VineT, Vine}
 
-import cats.Monad
-import kvothe.utility.vine.{Vine, VineT}
 
-abstract class Grower[F[_] : Monad, In, Format] {
-  def <:> : Grower[F,Map[String,In],Format] = ???
-  def ? : Grower[F,Option[In],Format] = ???
-  def <> : Grower[F,Seq[In],Format] = ???
+abstract class Grower[F[_] : Monad, Format] {
 
-  //Fixme body type should be something that allows laziness of reading
-  final def handle(value: In, req: NormalReq): Try[F[Format]] = {
-    compile(req).map {
-      _.run(VineT.pure[F](value))
+
+  type Sync[X] = Try[X]
+  type QueryParams = Seq[(String, String)]
+  type RequestBody = Format
+  type BranchSelector[Segment] = Pipe[Option[String], Option[Segment]]
+  type QueryParser[Query] = Pipe[QueryParams, Sync[Query]]
+  type BodyParser[Body] = Pipe[RequestBody, Sync[Body]]
+  type NormalReq = Request[QueryParams, RequestBody]
+  type Writer[X] = Pipe[X, Format]
+
+  implicit def vineWriter[X](implicit xWriter: Writer[X]): Writer[Vine[X]]
+
+  sealed trait Sprout[In] {
+    def compile(request: NormalReq): Sync[Program[In]]
+
+    final def narrow[NewIn](func: NewIn => Vine[In]): Sprout[NewIn] = {
+      NarrowedSprout(func, this)
+    }
+
+    final def ? : Sprout[Option[In]] = narrow(Vine.option)
+
+    final def <> : Sprout[Seq[In]] = narrow(Vine.seq)
+
+    final def <:> : Sprout[Map[String, In]] = narrow(Vine.map)
+  }
+
+  private case class NarrowedSprout[NewIn, In](narrower: NewIn => Vine[In], underlying: Sprout[In]) extends Sprout[NewIn] {
+    override def compile(request: NormalReq): Sync[Program[NewIn]] = {
+      underlying.compile(request).map {
+        program =>
+          program.narrow(narrower)
+      }
     }
   }
 
-  def compile(req: NormalReq): Try[Thunk[F, In, Format]]
 
-  //Fixme
-  def description: Unit
-}
+  sealed trait Program[In] {
+    def narrow[NewIn](narrower: NewIn => Vine[In]): Program[NewIn] = NarrowedProgram(narrower, this)
 
-object Grower {
-  def fork[F[_] : Monad, In, Format](branches: (BranchSelectorBuilder[F, In, Format] => Branch[F, In, Format])*):
-  Grower[F, In, Format] = {
-    val builder = new BranchSelectorBuilder[F, In, Format]()
-
-    new ForkGrower(branches.map(func => func(builder)))
+    def run(in: VineT[F, In]): F[Format]
   }
 
-  private[rost] class ForkGrower[F[_] : Monad, In, Format](
-    branches: Seq[Branch[F, In, Format]]
-  ) extends Grower[F, In, Format] {
-    override def description: Unit = ???
+  private case class NarrowedProgram[NewIn, In](narrower: NewIn => Vine[In], underlying: Program[In]) extends Program[NewIn] {
+    override def run(in: VineT[F, NewIn]): F[Format] = {
+      underlying.run(in.subflatMap(narrower))
+    }
+  }
 
-    override def compile(req: NormalReq): Try[Thunk[F, In, Format]] = {
-      req.currSegment.map {
+
+  private case class BranchProgram[In, Segment, Query, Body, Out](
+                                                                   segment: Segment,
+                                                                   request: Request[Query, Body],
+                                                                   resolver: Command[In, Segment, Query, Body] => F[Out],
+                                                                   next: Program[Out]
+                                                                 ) extends Program[In] {
+    override def run(in: VineT[F, In]): F[Format] = {
+      next.run(in.semiflatMap {
+        in =>
+          resolver(Command(in, segment, request))
+      })
+    }
+  }
+
+  private case class LeafProgram[In](inWriter: Writer[In]) extends Program[In] {
+    override def run(in: VineT[F, In]): F[Format] = {
+      in.value.map(vineWriter(inWriter).apply)
+    }
+  }
+
+  def ramification[In](branches: Seq[Branch[In]]): Sprout[In] =
+    Ramification(branches)
+
+
+  private case class Ramification[In](branches: Seq[Branch[In]]) extends Sprout[In] {
+
+
+    override def compile(request: NormalReq): Sync[Program[In]] = {
+      branches.iterator.map(_.compile(request)).dropWhile(_.isEmpty)
+        .map(_.get).toIterable
+        .headOption.getOrElse(Failure(new Exception("shit ramitfadafa")))
+    }
+  }
+  def leaf[In](implicit writer: Writer[In]):Sprout[In] = Leaf()
+
+  private case class Leaf[In](implicit writer: Writer[In]) extends Sprout[In] {
+    override def compile(request: NormalReq): Sync[Program[In]] =
+      Success(LeafProgram(writer))
+  }
+
+  def branch[In, Segment, Query, Body, Out](selector: BranchSelector[Segment],
+                                            queryParser: QueryParser[Query],
+                                            bodyParser: BodyParser[Body],
+                                            resolver: Command[In, Segment, Query, Body] => F[Out],
+                                            into: Sprout[Out]): Branch[In] = {
+    BranchImpl(selector: BranchSelector[Segment],
+      queryParser: QueryParser[Query],
+      bodyParser: BodyParser[Body],
+      resolver: Command[In, Segment, Query, Body] => F[Out],
+      into: Sprout[Out])
+  }
+
+  trait Branch[In] {
+    def compile(request: NormalReq): Option[Sync[Program[In]]]
+  }
+
+
+  private case class BranchImpl[In, Segment, Query, Body, Out](selector: BranchSelector[Segment],
+                                                               queryParser: QueryParser[Query],
+                                                               bodyParser: BodyParser[Body],
+                                                               resolver: Command[In, Segment, Query, Body] => F[Out],
+                                                               into: Sprout[Out]) extends Branch[In] {
+    override def compile(request: NormalReq): Option[Sync[Program[In]]] = {
+      selector(request.currSegment).map {
         segment =>
-          branches.iterator.map(_.compile(segment, req)).dropWhile(_.isEmpty).map(_.get).toIterable.headOption
-            .fold(Failure(new Exception(s"No branch matched path $segment")): Try[Thunk[F, In, Format]])(identity)
-      }.getOrElse(Failure(new Exception(s"Malformed path ${req.path} could not be matched")))
-
+          for {
+            query <- queryParser(request.query)
+            body <- bodyParser(request.body)
+            next <- request.next.map(Success(_))
+              .getOrElse(Failure(new Exception("Fix"))).flatMap {
+              nextRequest =>
+                into.compile(nextRequest)
+            }
+          } yield BranchProgram(segment, request.copy(query = query, body = body), resolver, next)
+      }
     }
   }
-  private[rost] class LeafGrower[F[_] : Monad, In, Format](implicit format: Pipe[Vine[In], Format]) extends Grower[F, In, Format] {
-    override def compile(req: NormalReq): Try[Thunk[F, In, Format]] = {
-      if (req.isLast) {
-        Success(Thunk.leaf[F, In, Format](format)): Try[Thunk[F, In, Format]]
-      } else Failure(new Exception(s"Malformed path ${req.path} could not be matched"))
-    }
-
-    override def description: Unit = ???
-  }
-
-  def leaf[F[_] : Monad, In, Format](implicit format: Pipe[Vine[In], Format]): Grower[F, In, Format] = new LeafGrower
 
 }
+
+
+
+
 
