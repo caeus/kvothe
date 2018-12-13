@@ -6,8 +6,8 @@ import scala.language.higherKinds
 import javax.inject.Inject
 import kvothe.Ctx
 import kvothe.api.PlayerApi
-import kvothe.domain.{SheetCreationRequest, SheetId, SheetUpdateRequest, UserId}
-import kvothe.utility.vine.VineT
+import kvothe.domain.{CreateSheetRequest, SheetId, UpdateSheetRequest, UserId}
+import edu.caeus.herbivicus.vine.VineT
 import monix.eval.Task
 import monix.execution.Scheduler
 import play.api.libs.json.Json
@@ -42,7 +42,7 @@ class SheetsCtrl @Inject()(
   }
 
 
-  def create = Action.async(parse.json[SheetCreationRequest]) {
+  def create = Action.async(parse.json[CreateSheetRequest]) {
     req =>
       VineT.pure[Task](PlayerApi(ctx, playerId))
         .growVal("sheets")(api => Task.eval(api.sheets))
@@ -81,7 +81,7 @@ class SheetsCtrl @Inject()(
       .map(t => Ok(Json.toJson(t)))
   }
 
-  def update(sheetId: String) = Action.async(parse.json[SheetUpdateRequest]) { request =>
+  def update(sheetId: String) = Action.async(parse.json[UpdateSheetRequest]) { request =>
     VineT.pure[Task](PlayerApi(ctx, playerId))
       .growVal("sheets")(api => Task.eval(api.sheets))
       .growOpt("one")(_.one(SheetId(sheetId)))

@@ -2,7 +2,7 @@ package kvothe.util
 
 import cats._
 import io.circe.{Encoder, Json, JsonObject}
-import kvothe.utility.vine.{VineT, Vine}
+import edu.caeus.herbivicus.vine.{VineT, Vine}
 import monix.eval.Task
 import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.play.PlaySpec

@@ -12,7 +12,7 @@ import play.api.test.Injecting
 import scala.concurrent.duration._
 import scala.util.Try
 
-class GrowerSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll with KvotheWriters {
+class SowerSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with BeforeAndAfterAll with KvotheWriters {
 
 
   val node4 = Grower.fork[Task, Char, JsValue](_.branch("optProp".seg).option {

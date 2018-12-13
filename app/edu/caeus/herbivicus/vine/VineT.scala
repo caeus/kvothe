@@ -1,4 +1,4 @@
-package kvothe.utility.vine
+package edu.caeus.herbivicus.vine
 
 import scala.language.higherKinds
 
@@ -54,7 +54,6 @@ case class VineT[F[_] : Monad, A](value: F[Vine[A]]) {
   def growBranch(branch: String): VineT[F, A] = subflatMap(a => Vine.map(Map(branch -> a)))
 
 }
-
 
 object VineT {
 

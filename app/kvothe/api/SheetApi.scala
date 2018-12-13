@@ -11,7 +11,7 @@ trait SheetApi {
 
   def versioned(version: Option[String]): Task[Option[VersionedSheetApi]]
 
-  def update(request: SheetUpdateRequest): Task[SheetUpdateResponse]
+  def update(request: UpdateSheetRequest): Task[SheetUpdateResponse]
 }
 
 class DefaultSheetApi(ctx: Ctx, playerId: UserId, grant: Grant) extends SheetApi {
@@ -22,7 +22,7 @@ class DefaultSheetApi(ctx: Ctx, playerId: UserId, grant: Grant) extends SheetApi
       v.map(x => new DefaultVersionedSheetApi(ctx, grant, x))
     }
 
-  override def update(request: SheetUpdateRequest): Task[SheetUpdateResponse] = {
+  override def update(request: UpdateSheetRequest): Task[SheetUpdateResponse] = {
     ctx.sheetsIO.update(grant.sheetId,SheetPatch(data = request.data,
       comment = request.comment,
       author = playerId)).map {

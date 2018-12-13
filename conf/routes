@@ -5,6 +5,8 @@
 
 # An example controller showing a sample home page
 GET         /v1/sheets/entries                                        controllers.SheetsCtrl.entries
+GET         /v2/*route                                                controllers.PlayerCtrl.process(route)
+POST        /v2/*route                                                controllers.PlayerCtrl.process(route)
 GET         /v1/sheets/:sheetId/versions                              controllers.SheetsCtrl.versionsOf(sheetId)
 POST        /v1/sheets/create                                         controllers.SheetsCtrl.create
 GET         /v1/sheets/:sheetId/versioned/:versionId/data             controllers.SheetsCtrl.data(sheetId,versionId)

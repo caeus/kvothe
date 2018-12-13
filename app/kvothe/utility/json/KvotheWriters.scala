@@ -1,9 +1,9 @@
 package kvothe.utility.json
 
+import edu.caeus.herbivicus.sower.Pipe
+import edu.caeus.herbivicus.vine.Vine
+import edu.caeus.herbivicus.vine.Vine.PartialFolder
 import kvothe.domain._
-import kvothe.rost.Pipe
-import kvothe.utility.vine.Vine
-import kvothe.utility.vine.Vine.{ArrayOf, DictOf, Empty, ValOf}
 import play.api.libs.json._
 
 trait KvotheWriters {
@@ -22,6 +22,10 @@ trait KvotheWriters {
     Pipe[Vine[T], JsValue](writes.writes)
 
   import play.api.libs.json._
+
+  def vinePartialFolderJsValue: Vine.PartialFolder[JsValue] = PartialFolder[JsValue](JsNull,
+    array => JsArray(array),
+    dict => JsObject(dict))
 
   implicit val userIdWrites: Writes[UserId] = Writes[UserId](id => JsString(id.value))
   implicit val sheetEntryWrites: OWrites[SheetEntry] = Json.writes[SheetEntry]

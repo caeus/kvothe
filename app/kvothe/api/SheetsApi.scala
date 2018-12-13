@@ -12,7 +12,7 @@ trait SheetsApi {
 
   def one(id: SheetId): Task[Option[SheetApi]]
 
-  def create(request: SheetCreationRequest): Task[SheetCreationResponse]
+  def create(request: CreateSheetRequest): Task[SheetCreationResponse]
 }
 
 class DefaultSheetsApi(ctx: Ctx, playerId: UserId) extends SheetsApi {
@@ -27,7 +27,7 @@ class DefaultSheetsApi(ctx: Ctx, playerId: UserId) extends SheetsApi {
   override def one(id: SheetId): Task[Option[SheetApi]] = ctx.grantsIO.bySheetId(playerId, id)
     .map(_.map(grant => new DefaultSheetApi(ctx, playerId, grant)))
 
-  override def create(request: SheetCreationRequest): Task[SheetCreationResponse] = {
+  override def create(request: CreateSheetRequest): Task[SheetCreationResponse] = {
     ctx.grantsIO.bySheetId(playerId, request.id).flatMap {
       case Some(_) => Task.raiseError(new Exception("YISSS it already exists"))
       case None => ctx.sheetsIO.init(SheetInit(id = request.id: SheetId,

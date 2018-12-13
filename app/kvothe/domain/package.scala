@@ -16,7 +16,7 @@ package object domain {
 
   import gnieh.diffson.playJson.JsonPatch
 
-  case class SheetUpdateRequest(
+  case class UpdateSheetRequest(
     data: JsonPatch,
     comment: String
   )
@@ -30,7 +30,7 @@ package object domain {
 
   case class SheetEntry(id: String)
 
-  case class SheetCreationRequest(id: SheetId, data: JsValue)
+  case class CreateSheetRequest(id: SheetId, data: JsValue)
 
   case class SheetCreationResponse(success:Boolean)
 

@@ -1,9 +1,10 @@
-package kvothe.utility.vine
+package edu.caeus.herbivicus.vine
+
+import scala.language.higherKinds
 
 import cats._
 import cats.implicits._
-
-import scala.language.higherKinds
+import edu.caeus.herbivicus.vine.Vine.Folder
 
 
 sealed abstract class Vine[+A] {
@@ -12,25 +13,92 @@ sealed abstract class Vine[+A] {
 
   def flatMap[B](f: A => Vine[B]): Vine[B]
 
-  def fold[B](ifEmpty: =>B,
-              ifVal: A=>B,
-              ifArray:Seq[Vine[A]]=>B,
-              ifDict: Map[String,Vine[A]]=>B):B
+  def fold[B](
+    ifEmpty: => B,
+    ifVal: A => B,
+    ifArray: Seq[Vine[A]] => B,
+    ifDict: Map[String, Vine[A]] => B
+  ): B
 
-  def isEmpty:Boolean
-  def isVal:Boolean
-  def isArray:Boolean
-  def isDict:Boolean
+  final def foldWith[B](folder: Folder[A, B]): B = fold(
+    folder.empty,
+    folder.value,
+    array => folder.array(array.map(_.foldWith(folder))),
+    dict => folder.dict(dict.mapValues(_.foldWith(folder)))
+  )
+
+  def isEmpty: Boolean
+
+  def isVal: Boolean
+
+  def isArray: Boolean
+
+  def isDict: Boolean
 }
 
 
 object Vine {
 
+  trait Folder[-In, Out] {
+    def empty: Out
+
+    def value(in: In): Out
+
+    def array(seq: Seq[Out]): Out
+
+    def dict(map: Map[String, Out]): Out
+
+  }
+  trait PartialFolder[Out] {
+    def empty: Out
+
+    def array(seq: Seq[Out]): Out
+
+    def dict(map: Map[String, Out]): Out
+
+    final def apply[In](f: In => Out): Folder[In, Out] = new FolderImpl(empty, f, array, dict)
+  }
+  object PartialFolder {
+    def apply[Out](
+      ifEmpty: => Out,
+      ifArray: Seq[Out] => Out,
+      ifDict: Map[String, Out] => Out
+    ) =
+      new PartialFolderImpl[Out](ifEmpty, ifArray, ifDict)
+  }
+  private[Vine] class PartialFolderImpl[Out](
+    ifEmpty: => Out,
+    ifArray: Seq[Out] => Out,
+    ifDict: Map[String, Out] => Out
+  ) extends PartialFolder[Out] {
+    override def empty: Out = ifEmpty
+
+    override def array(seq: Seq[Out]): Out = ifArray(seq)
+
+    override def dict(map: Map[String, Out]): Out = ifDict(map)
+  }
+
+  private class FolderImpl[In, Out](
+    ifEmpty: => Out,
+    ifValue: In => Out,
+    ifArray: Seq[Out] => Out,
+    ifDict: Map[String, Out] => Out
+  ) extends Folder[In, Out] {
+    override def empty: Out = ifEmpty
+
+    override def value(in: In): Out = ifValue(in)
+
+    override def array(seq: Seq[Out]): Out = ifArray(seq)
+
+    override def dict(map: Map[String, Out]): Out = ifDict(map)
+
+  }
+
   def empty[A]: Vine[A] = Empty
 
   def pure[A](value: A): Vine[A] = ValOf(value)
 
-  def option[A](value:Option[A]):Vine[A] = value.map(pure).getOrElse(empty)
+  def option[A](value: Option[A]): Vine[A] = value.map(pure).getOrElse(empty)
 
   def array[A](value: Seq[Vine[A]]) = ArrayOf(value)
 
@@ -48,10 +116,12 @@ object Vine {
       f(value)
     }
 
-    override def fold[B](ifEmpty: => B,
-                         ifVal: A => B,
-                         ifArray: Seq[Vine[A]] => B,
-                         ifDict: Map[String, Vine[A]] => B): B = ifVal(value)
+    override def fold[B](
+      ifEmpty: => B,
+      ifVal: A => B,
+      ifArray: Seq[Vine[A]] => B,
+      ifDict: Map[String, Vine[A]] => B
+    ): B = ifVal(value)
 
     override def isEmpty: Boolean = false
 
@@ -71,7 +141,12 @@ object Vine {
       })
     }
 
-    override def fold[B](ifEmpty: => B, ifVal: A => B, ifArray: Seq[Vine[A]] => B, ifDict: Map[String, Vine[A]] => B): B =
+    override def fold[B](
+      ifEmpty: => B,
+      ifVal: A => B,
+      ifArray: Seq[Vine[A]] => B,
+      ifDict: Map[String, Vine[A]] => B
+    ): B =
       ifArray(value)
 
     override def isEmpty: Boolean = false
@@ -90,7 +165,12 @@ object Vine {
 
     override def flatMap[B](f: A => Vine[B]): Vine[B] = DictOf(value.mapValues(_.flatMap(f)))
 
-    override def fold[B](ifEmpty: => B, ifVal: A => B, ifArray: Seq[Vine[A]] => B, ifDict: Map[String, Vine[A]] => B): B =
+    override def fold[B](
+      ifEmpty: => B,
+      ifVal: A => B,
+      ifArray: Seq[Vine[A]] => B,
+      ifDict: Map[String, Vine[A]] => B
+    ): B =
       ifDict(value)
 
     override def isEmpty: Boolean = false
@@ -107,10 +187,12 @@ object Vine {
 
     override def flatMap[B](f: Nothing => Vine[B]): Vine[B] = this
 
-    override def fold[B](ifEmpty: => B,
-                         ifVal: Nothing => B,
-                         ifArray: Seq[Vine[Nothing]] => B,
-                         ifDict: Map[String, Vine[Nothing]] => B): B = ifEmpty
+    override def fold[B](
+      ifEmpty: => B,
+      ifVal: Nothing => B,
+      ifArray: Seq[Vine[Nothing]] => B,
+      ifDict: Map[String, Vine[Nothing]] => B
+    ): B = ifEmpty
 
     override def isEmpty: Boolean = true
 
@@ -137,7 +219,7 @@ object Vine {
           map.mapValues(recFold).map {
             case (path, value) => value.map(path -> _)
           }.toList.sequence.map(_.toMap).map(DictOf(_))
-        case empty@Empty =>
+        case empty @ Empty =>
           Monad[F].pure(empty)
       }
     }
