@@ -3,15 +3,17 @@ package controllers
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-import edu.caeus.herbivicus.sower.data.{Request => SRequest}
-import edu.caeus.herbivicus.vine.VineT
+import cats.MonadError
+import io.sower.{CompileError, Request => SRequest}
+import io.vine.VineT
 import javax.inject.Inject
 import kvothe.Ctx
 import kvothe.api.PlayerApi
-import kvothe.domain.UserId
+import kvothe.domain.{PlayerCompileError, UserId}
+import kvothe.sower.KvotheReq
 import monix.eval.Task
 import monix.execution.Scheduler
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsNull, Json}
 import play.api.mvc._
 import trees.PlayerSprout
 
@@ -30,25 +32,27 @@ class PlayerCtrl @Inject()(
   //    ???
   //  }
 
+  MonadError
+
   val playerId = UserId("caeus")
   val playerApi = PlayerApi(ctx, playerId)
 
-  def process(route: String): Action[JsValue] = Action.async(parse.json) {
+  def process(route: String): Action[AnyContent] = Action.async {
     request =>
-      PlayerSprout.schema.compile(SRequest(route.split('/').toList,
-        request.queryString.toList.flatMap {
-          case (key, values) => values.map {
-            value => key -> value
-          }
-        }, request.body))
+      PlayerSprout(SRequest(route.split('/').toList,
+        KvotheReq(request.queryString, request.body.asJson.getOrElse(JsNull))))
         .map {
           program =>
             program.run(VineT.pure(playerApi))
               .runAsync
         }.fold(Future.failed, identity)
         .map {
-          body => Ok(body)
-        }
+          body =>
+            Ok(body)
+        }.recover {
+        case e: CompileError =>
+          Ok(Json.toJson(PlayerCompileError(e.getMessage, remainingRoute = e.request.route, fullRoute = e.request.original)))
+      }
   }
 
 }

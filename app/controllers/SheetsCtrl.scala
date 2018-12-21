@@ -7,7 +7,7 @@ import javax.inject.Inject
 import kvothe.Ctx
 import kvothe.api.PlayerApi
 import kvothe.domain.{CreateSheetRequest, SheetId, UpdateSheetRequest, UserId}
-import edu.caeus.herbivicus.vine.VineT
+import io.vine.VineT
 import monix.eval.Task
 import monix.execution.Scheduler
 import play.api.libs.json.Json

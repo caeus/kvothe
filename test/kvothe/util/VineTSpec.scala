@@ -2,7 +2,7 @@ package kvothe.util
 
 import cats._
 import io.circe.{Encoder, Json, JsonObject}
-import edu.caeus.herbivicus.vine.{VineT, Vine}
+import io.vine.{VineT, Vine}
 import monix.eval.Task
 import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.play.PlaySpec
@@ -16,7 +16,7 @@ class VineTSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with Bef
   implicit def encoder[A: Encoder]: Encoder[Vine[A]] {
     def apply(tson: Vine[A]): Json
   } = new Encoder[Vine[A]] {
-    override def apply(tson: Vine[A]): Json = tson.fold(
+    override def apply(tson: Vine[A]): Json = tson.combine(
       Json.Null,
       av => Encoder[A].apply(av),
       seq => Json.fromValues(seq.map(apply)),

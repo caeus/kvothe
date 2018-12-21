@@ -41,11 +41,11 @@ class GrantsGitDepotSpec extends PlaySpec with GuiceOneAppPerTest with Injecting
       implicit val executionContext = inject[Scheduler]
 
 
-      inject[GrantsDepot].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isEmpty mustBe true
-      inject[GrantsDepot].grantTo(UserId("caeus"), SheetId("ezra")).unsafeRunSync
+      inject[GrantsArchive].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isEmpty mustBe true
+      inject[GrantsArchive].grantTo(UserId("caeus"), SheetId("ezra")).unsafeRunSync
 
-      inject[GrantsDepot].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isDefined mustBe true
-      inject[GrantsDepot].allOf(UserId("caeus")).unsafeRunSync.length mustBe 1
+      inject[GrantsArchive].bySheetId(UserId("caeus"), SheetId("ezra")).unsafeRunSync.isDefined mustBe true
+      inject[GrantsArchive].allOf(UserId("caeus")).unsafeRunSync.length mustBe 1
 
     }
 

@@ -2,70 +2,63 @@ package trees
 
 import scala.util.Try
 
-import edu.caeus.herbivicus.sower.Pipe
-import kvothe.api.PlayerApi
+import io.sower.{Pipe, Pot}
+import kvothe.api.{PlayerApi, VersionedSheetApi}
 import kvothe.domain.{CreateSheetRequest, SheetId, UpdateSheetRequest}
-import kvothe.sower.KvotheSower
-import kvothe.sower.KvotheSower.dsl._
+import kvothe.sower.{KvotheReq, KvotheSower}
 import kvothe.utility.json.{KvotheReaders, KvotheWriters}
 import monix.eval.Task
 import play.api.libs.json.{JsValue, Reads, Writes}
 
 
-object PlayerSprout extends KvotheWriters with KvotheReaders {
+object PlayerSprout extends Pot[PlayerApi, Task, KvotheReq, JsValue](KvotheSower) with KvotheWriters with KvotheReaders {
+  import sower.syntax._
 
-  implicit def asdas[T](implicit tWrites: Writes[T]): Pipe[T, JsValue] = Pipe[T, JsValue] {
-    t => tWrites.writes(t)
+  implicit def kvotheReqToMarshaller[T](implicit tWrites: Writes[T]): Pipe[T, JsValue] = Pipe[T, JsValue] {
+    t =>
+      tWrites.writes(t)
   }
 
-  implicit def kajhdkajhsdj[T](implicit tReads: Reads[T]): Pipe[JsValue, Try[T]] = Pipe[JsValue, Try[T]] {
+  implicit def kvotheReqToUnmarshaller[T](implicit tReads: Reads[T]): Pipe[KvotheReq, Try[T]] = Pipe[KvotheReq, Try[T]] {
     value =>
-      Try(tReads.reads(value).get)
+      Try(value.body.as[T])
   }
-  implicitly[Pipe[JsValue,Try[CreateSheetRequest]]]
-  //kajhdkajhsdj(asd)
 
-  val schema = fork[PlayerApi](
+  private val value: sower.Sprout[VersionedSheetApi] = fork(
+    _.branch("data")
+    (_ => _.data).into(leaf),
+    _.branch("changelog")
+    (_ => _.changelog).into(leaf)
+  )
+
+  val schema: PlayerSprout.sower.Sprout[PlayerApi] = fork[PlayerApi](
     _.branch("sheets") { _ =>
       api => Task eval api.sheets
     }.into(fork(
-      _.branch("entries"){
+      _.branch("entries") {
         _ => _.entries
       }.into(leaf),
       _.branch("create")
-        .body(as[CreateSheetRequest]) { req =>
-          api=>api.create(req.body)
+        .payload(as[CreateSheetRequest]) { req =>
+          api => api.create(req.payload)
         }.into(leaf),
-      _.branch("one")(---)
-        .into(fork(_.branch(Segment.map(_.map(SheetId))) { req =>
-          _.one(req.segment)
+      _.branch("one")
+        .segment(asString.map(_.map(SheetId(_)))) {
+          req => _.one(req.segment)
         }.into(option of fork(
-          _.branch("versions") { _ =>
-            _.versions
-          }.into(leaf),
-          _.branch("versioned")(---)
-            .into(fork(
-              _.branch(Segment) { req =>
-                _.versioned(Some(req.segment)
-                  .filter(_ != "current"))
-              }.into(option of fork(
-                _.branch("data")
-                (_ => _.data)
-                  .into(leaf),
-                _.branch("changelog")
-                (_ => _.changelog)
-                  .into(leaf)
-              ))
-            )),
-          _.branch("update")
-            .body(kajhdkajhsdj(implicitly[Reads[UpdateSheetRequest]])) { req =>
-              _.update(req.body)
-            }
-            .into(leaf)
-        )))
-        ))
-    ))
-
+        _.branch("versions") { _ =>
+          _.versions
+        }.into(leaf),
+        _.branch("versioned")
+          .segment(asString) {
+            req => _.versioned(Some(req.segment).filter(_ != "current"))
+          }.into(option of value),
+        _.branch("update")
+          .payload(as[UpdateSheetRequest]) { req =>
+            _.update(req.payload)
+          }.into(leaf)
+      ))
+    )))
 }
 
 

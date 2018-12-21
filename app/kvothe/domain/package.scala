@@ -66,4 +66,6 @@ package object domain {
 
   case class Grant(userId: UserId, sheetId: SheetId)
 
+  case class PlayerCompileError(msg:String, remainingRoute:List[String],fullRoute:List[String])
+
 }

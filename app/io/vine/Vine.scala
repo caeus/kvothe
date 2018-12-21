@@ -1,10 +1,10 @@
-package edu.caeus.herbivicus.vine
+package io.vine
 
 import scala.language.higherKinds
 
 import cats._
 import cats.implicits._
-import edu.caeus.herbivicus.vine.Vine.Folder
+import io.vine.Vine.Combiner
 
 
 sealed abstract class Vine[+A] {
@@ -13,18 +13,16 @@ sealed abstract class Vine[+A] {
 
   def flatMap[B](f: A => Vine[B]): Vine[B]
 
-  def fold[B](
+  def combine[B >: A](
     ifEmpty: => B,
-    ifVal: A => B,
-    ifArray: Seq[Vine[A]] => B,
-    ifDict: Map[String, Vine[A]] => B
+    ifArray: Seq[B] => B,
+    ifDict: Map[String, B] => B
   ): B
 
-  final def foldWith[B](folder: Folder[A, B]): B = fold(
-    folder.empty,
-    folder.value,
-    array => folder.array(array.map(_.foldWith(folder))),
-    dict => folder.dict(dict.mapValues(_.foldWith(folder)))
+  final def combineWith[B >:A](combiner: Combiner[B]): B = combine(
+    combiner.empty,
+    combiner.array,
+    combiner.dict
   )
 
   def isEmpty: Boolean
@@ -39,58 +37,34 @@ sealed abstract class Vine[+A] {
 
 object Vine {
 
-  trait Folder[-In, Out] {
-    def empty: Out
+  trait Combiner[X] {
+    def empty: X
 
-    def value(in: In): Out
+    def array(seq: Seq[X]): X
 
-    def array(seq: Seq[Out]): Out
-
-    def dict(map: Map[String, Out]): Out
+    def dict(map: Map[String, X]): X
 
   }
-  trait PartialFolder[Out] {
-    def empty: Out
-
-    def array(seq: Seq[Out]): Out
-
-    def dict(map: Map[String, Out]): Out
-
-    final def apply[In](f: In => Out): Folder[In, Out] = new FolderImpl(empty, f, array, dict)
-  }
-  object PartialFolder {
-    def apply[Out](
-      ifEmpty: => Out,
-      ifArray: Seq[Out] => Out,
-      ifDict: Map[String, Out] => Out
-    ) =
-      new PartialFolderImpl[Out](ifEmpty, ifArray, ifDict)
-  }
-  private[Vine] class PartialFolderImpl[Out](
-    ifEmpty: => Out,
-    ifArray: Seq[Out] => Out,
-    ifDict: Map[String, Out] => Out
-  ) extends PartialFolder[Out] {
-    override def empty: Out = ifEmpty
-
-    override def array(seq: Seq[Out]): Out = ifArray(seq)
-
-    override def dict(map: Map[String, Out]): Out = ifDict(map)
+  object Combiner{
+    def apply[X](
+      ifEmpty: => X,
+      ifArray: Seq[X] => X,
+      ifDict: Map[String, X] => X
+    ) : Combiner[X] = new CombinerImpl[X](ifEmpty,ifArray,ifDict)
   }
 
-  private class FolderImpl[In, Out](
-    ifEmpty: => Out,
-    ifValue: In => Out,
-    ifArray: Seq[Out] => Out,
-    ifDict: Map[String, Out] => Out
-  ) extends Folder[In, Out] {
-    override def empty: Out = ifEmpty
 
-    override def value(in: In): Out = ifValue(in)
+  private class CombinerImpl[X](
+    ifEmpty: => X,
+    ifArray: Seq[X] => X,
+    ifDict: Map[String, X] => X
+  ) extends Combiner[X] {
 
-    override def array(seq: Seq[Out]): Out = ifArray(seq)
-
-    override def dict(map: Map[String, Out]): Out = ifDict(map)
+    override def empty: X = ifEmpty
+    override def array(seq: Seq[X]): X = ifArray(seq)
+    override def dict(map: Map[String, X]): X = {
+      ifDict(map)
+    }
 
   }
 
@@ -116,13 +90,6 @@ object Vine {
       f(value)
     }
 
-    override def fold[B](
-      ifEmpty: => B,
-      ifVal: A => B,
-      ifArray: Seq[Vine[A]] => B,
-      ifDict: Map[String, Vine[A]] => B
-    ): B = ifVal(value)
-
     override def isEmpty: Boolean = false
 
     override def isVal: Boolean = true
@@ -130,6 +97,12 @@ object Vine {
     override def isArray: Boolean = false
 
     override def isDict: Boolean = false
+
+    override def combine[B >: A](
+      ifEmpty: => B,
+      ifArray: Seq[B] => B,
+      ifDict: Map[String, B] => B
+    ): B = value
   }
 
   private[vine] case class ArrayOf[+A](value: Seq[Vine[A]]) extends Vine[A] {
@@ -141,13 +114,7 @@ object Vine {
       })
     }
 
-    override def fold[B](
-      ifEmpty: => B,
-      ifVal: A => B,
-      ifArray: Seq[Vine[A]] => B,
-      ifDict: Map[String, Vine[A]] => B
-    ): B =
-      ifArray(value)
+
 
     override def isEmpty: Boolean = false
 
@@ -156,6 +123,12 @@ object Vine {
     override def isArray: Boolean = true
 
     override def isDict: Boolean = false
+
+    override def combine[B >: A](
+      ifEmpty: => B,
+      ifArray: Seq[B] => B,
+      ifDict: Map[String, B] => B
+    ): B = ifArray(value.map(_.combine(ifEmpty,ifArray,ifDict)))
   }
 
   private[vine] case class DictOf[F[_], +A](value: Map[String, Vine[A]]) extends Vine[A] {
@@ -165,14 +138,6 @@ object Vine {
 
     override def flatMap[B](f: A => Vine[B]): Vine[B] = DictOf(value.mapValues(_.flatMap(f)))
 
-    override def fold[B](
-      ifEmpty: => B,
-      ifVal: A => B,
-      ifArray: Seq[Vine[A]] => B,
-      ifDict: Map[String, Vine[A]] => B
-    ): B =
-      ifDict(value)
-
     override def isEmpty: Boolean = false
 
     override def isVal: Boolean = false
@@ -180,19 +145,18 @@ object Vine {
     override def isArray: Boolean = false
 
     override def isDict: Boolean = true
+
+    override def combine[B >: A](
+      ifEmpty: => B,
+      ifArray: Seq[B] => B,
+      ifDict: Map[String, B] => B
+    ): B = ifDict(value.mapValues(_.combine(ifEmpty,ifArray,ifDict)))
   }
 
   private[vine] case object Empty extends Vine[Nothing] {
     override def map[B](f: Nothing => B): Vine[B] = this
 
     override def flatMap[B](f: Nothing => Vine[B]): Vine[B] = this
-
-    override def fold[B](
-      ifEmpty: => B,
-      ifVal: Nothing => B,
-      ifArray: Seq[Vine[Nothing]] => B,
-      ifDict: Map[String, Vine[Nothing]] => B
-    ): B = ifEmpty
 
     override def isEmpty: Boolean = true
 
@@ -201,6 +165,12 @@ object Vine {
     override def isArray: Boolean = false
 
     override def isDict: Boolean = false
+
+    override def combine[B >: Nothing](
+      ifEmpty: => B,
+      ifArray: Seq[B] => B,
+      ifDict: Map[String, B] => B
+    ): B = ifEmpty
   }
 
 

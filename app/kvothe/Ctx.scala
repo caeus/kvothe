@@ -1,7 +1,7 @@
 package kvothe
 
 import javax.inject.{Inject, Singleton}
-import depots.{GrantsDepot, SheetsDepot}
+import depots.{GrantsArchive, SheetsArchive}
 
 @Singleton
-class Ctx @Inject()(val sheetsIO: SheetsDepot, val grantsIO: GrantsDepot)
+class Ctx @Inject()(val sheetsArchive: SheetsArchive, val grantsArchive: GrantsArchive)

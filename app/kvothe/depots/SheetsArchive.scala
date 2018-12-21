@@ -3,6 +3,7 @@ package kvothe.depots
 import scala.reflect.ClassTag
 
 import akka.util.ByteString
+import cats.data.Kleisli
 import com.google.inject.{ImplementedBy, Inject}
 import javax.inject.{Named, Singleton}
 import kvothe.domain._
@@ -10,11 +11,11 @@ import kvothe.utility.git.GitExecutor
 import kvothe.utility.git.types.CommitRef
 import kvothe.utility.git.types.cmds._
 import monix.eval.Task
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.Json
 
 
-@ImplementedBy(classOf[SheetsGitDepot])
-trait SheetsDepot {
+@ImplementedBy(classOf[SheetsGitArchive])
+trait SheetsArchive {
 
   def versions(sheetId: SheetId): Task[Seq[SheetVersionEntry]]
 
@@ -32,7 +33,7 @@ trait SheetsDepot {
 
 
 @Singleton
-class SheetsGitDepot @Inject()(@Named("sheets") gitRepo: GitExecutor) extends SheetsDepot {
+class SheetsGitArchive @Inject()(@Named("sheets") gitRepo: GitExecutor) extends SheetsArchive {
 
 
   private def toVersion(commitRef: CommitRef): SheetVersionEntry = SheetVersionEntry(id = SheetVersionId(commitRef.id),
@@ -78,6 +79,7 @@ class SheetsGitDepot @Inject()(@Named("sheets") gitRepo: GitExecutor) extends Sh
     } yield r)
   }
 
+  Kleisli
 
   override def versioned(
     sheetId: SheetId,
@@ -94,9 +96,8 @@ class SheetsGitDepot @Inject()(@Named("sheets") gitRepo: GitExecutor) extends Sh
               .map(SheetVersionId)
           }
         } yield Some(VersionedSheet(sheetId,
-          Json.parse(content.toArray)
-            .as[JsObject], versionId))
-
+          Json.parse(content.toArray), versionId))
+      case None => pure(None) //TODO WTF????? what if version doesn't exist?
     }
   }
 
@@ -115,6 +116,7 @@ class SheetsGitDepot @Inject()(@Named("sheets") gitRepo: GitExecutor) extends Sh
       } yield {
         SheetVersionEntry(SheetVersionId(revisionId), patch.comment, patch.author)
       }
+    case None => pure(???) // TODO SAME SHIT!
   }
 
   override def changelog(

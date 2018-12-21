@@ -1,4 +1,4 @@
-package edu.caeus.herbivicus.vine
+package io.vine
 
 import scala.language.higherKinds
 

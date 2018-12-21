@@ -7,8 +7,8 @@ import kvothe.domain.{Grant, SheetId, UserId}
 import kvothe.utility.git.GitExecutor
 import monix.eval.Task
 
-@ImplementedBy(classOf[GrantsGitDepot])
-trait GrantsDepot {
+@ImplementedBy(classOf[GrantsGitArchive])
+trait GrantsArchive {
 
   def allOf(userId: UserId): Task[Seq[Grant]]
 
@@ -19,7 +19,7 @@ trait GrantsDepot {
 }
 
 @Singleton
-class GrantsGitDepot @Inject()(@Named("grants") executor: GitExecutor) extends GrantsDepot {
+class GrantsGitArchive @Inject()(@Named("grants") executor: GitExecutor) extends GrantsArchive {
   import kvothe.utility.git.types.cmds._
 
   override def allOf(userId: UserId): Task[Seq[Grant]] = {

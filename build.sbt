@@ -9,7 +9,7 @@ scalaVersion := "2.12.6"
 
 libraryDependencies ++= Seq(
   guice,
-  "org.typelevel" %% "cats-free" % "1.2.0",
+  "org.typelevel" %% "cats-free" % "1.4.0",
   "com.softwaremill.common" %% "tagging" % "2.2.1",
   "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
   "io.monix" %% "monix" % "3.0.0-RC1",
