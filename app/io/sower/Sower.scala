@@ -31,11 +31,12 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
       NarrowedSprout(func, this)
     }
 
-    final def ? : Sprout[Option[From]] = narrow(Vine.option)
+    final def optional : Sprout[Option[From]] = narrow(Vine.option)
 
-    final def <> : Sprout[Seq[From]] = narrow(Vine.seq)
+    final def array : Sprout[Seq[From]] = narrow(Vine.seq)
 
-    final def <:> : Sprout[Map[String, From]] = narrow(Vine.map)
+    final def dictionary : Sprout[Map[String, From]] = narrow(Vine.map)
+
   }
 
   private case class NarrowedSprout[NewIn, In](

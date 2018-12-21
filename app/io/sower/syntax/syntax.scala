@@ -57,15 +57,15 @@ package object syntax {
       }
 
       def option = new Ofable[Option](new FunctionK[sower.Sprout, ({type L[Y] = sower.Sprout[Option[Y]]})#L] {
-        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Option[A]] = fa.?
+        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Option[A]] = fa.optional
       })
 
       def seq = new Ofable[Seq](new FunctionK[sower.Sprout, ({type L[Y] = sower.Sprout[Seq[Y]]})#L] {
-        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Seq[A]] = fa.<>
+        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Seq[A]] = fa.array
       })
 
       def map = new Ofable[({type L[Y] = Map[String, Y]})#L](new FunctionK[sower.Sprout, ({type L[Y] = sower.Sprout[Map[String, Y]]})#L] {
-        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Map[String, A]] = fa.<:>
+        override def apply[A](fa: sower.Sprout[A]): sower.Sprout[Map[String, A]] = fa.dictionary
       })
 
 

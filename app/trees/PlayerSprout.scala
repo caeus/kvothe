@@ -3,7 +3,7 @@ package trees
 import scala.util.Try
 
 import io.sower.{Pipe, Pot}
-import kvothe.api.{PlayerApi, VersionedSheetApi}
+import kvothe.api.PlayerApi
 import kvothe.domain.{CreateSheetRequest, SheetId, UpdateSheetRequest}
 import kvothe.sower.{KvotheReq, KvotheSower}
 import kvothe.utility.json.{KvotheReaders, KvotheWriters}
@@ -24,41 +24,41 @@ object PlayerSprout extends Pot[PlayerApi, Task, KvotheReq, JsValue](KvotheSower
       Try(value.body.as[T])
   }
 
-  private val value: sower.Sprout[VersionedSheetApi] = fork(
-    _.branch("data")
-    (_ => _.data).into(leaf),
-    _.branch("changelog")
-    (_ => _.changelog).into(leaf)
-  )
 
-  val schema: PlayerSprout.sower.Sprout[PlayerApi] = fork[PlayerApi](
+  val schema: PlayerSprout.sower.Sprout[PlayerApi] = fork[PlayerApi] {
     _.branch("sheets") { _ =>
       api => Task eval api.sheets
-    }.into(fork(
+    }.into(fork {
       _.branch("entries") {
         _ => _.entries
-      }.into(leaf),
-      _.branch("create")
+      }.into(leaf)
+        .branch("create")
         .payload(as[CreateSheetRequest]) { req =>
           api => api.create(req.payload)
-        }.into(leaf),
-      _.branch("one")
+        }.into(leaf)
+        .branch("one")
         .segment(asString.map(_.map(SheetId(_)))) {
           req => _.one(req.segment)
-        }.into(option of fork(
+        }.into(option of fork {
         _.branch("versions") { _ =>
           _.versions
-        }.into(leaf),
-        _.branch("versioned")
+        }.into(leaf)
+          .branch("versioned")
           .segment(asString) {
             req => _.versioned(Some(req.segment).filter(_ != "current"))
-          }.into(option of value),
-        _.branch("update")
+          }.into(option of fork {
+          _.branch("data")(_ => _.data)
+            .into(leaf)
+            .branch("changelog")(_ => _.changelog)
+            .into(leaf)
+        })
+          .branch("update")
           .payload(as[UpdateSheetRequest]) { req =>
             _.update(req.payload)
           }.into(leaf)
-      ))
-    )))
+      })
+    })
+  }
 }
 
 
