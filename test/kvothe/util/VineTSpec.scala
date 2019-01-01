@@ -16,11 +16,10 @@ class VineTSpec extends PlaySpec with GuiceOneAppPerTest with Injecting with Bef
   implicit def encoder[A: Encoder]: Encoder[Vine[A]] {
     def apply(tson: Vine[A]): Json
   } = new Encoder[Vine[A]] {
-    override def apply(tson: Vine[A]): Json = tson.combine(
+    override def apply(tson: Vine[A]): Json = tson.map(Encoder[A].apply).combine(
       Json.Null,
-      av => Encoder[A].apply(av),
-      seq => Json.fromValues(seq.map(apply)),
-      map => Json.fromJsonObject(JsonObject.fromMap(map.mapValues(apply)))
+      Json.fromValues,
+      Json.fromFields
     )
   }
 

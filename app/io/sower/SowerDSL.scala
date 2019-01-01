@@ -42,14 +42,14 @@ trait SowerDSL[F[_], Input, Output] {
       = new BranchBuilder[From, Segment, Payload, To](prevBranches,branchSelector, inputParser, func)
     }
     private[sower] class Branches[From] private[sower](val value:List[Branch[From]]) {
-      def branch[Segment](branchSelector: BranchSelector[Segment]): BranchResolverBuilder[From, Segment, Input] = {
-        BranchResolverBuilder(value,branchSelector: BranchSelector[Segment],
+      def branch(name: String): BranchResolverBuilder[From, Unit, Input] = {
+        BranchResolverBuilder(value,BranchSelector(name, _.map(_ => Failure(new Exception("This branch doesn't take params")))
+          .getOrElse(Success(()))): BranchSelector[Unit],
           sower.normalInputParser
         )
       }
     }
-    implicit def stringAsBranchSelector(value: String): BranchSelector[Unit] = BranchSelector(value,
-      _.map(_ => Failure(new Exception("This branch doesn't take params"))).getOrElse(Success(())))
+
 
     class Ofable[X[_]](func: FunctionK[sower.Sprout, ({type L[Y] = sower.Sprout[X[Y]]})#L]) {
       def of[Val](sprout: sower.Sprout[Val]): sower.Sprout[X[Val]] = func(sprout)
