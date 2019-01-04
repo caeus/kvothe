@@ -40,7 +40,8 @@ object PackerResult {
   ) extends PackerResult[In, Out] {
     override def isDone: Boolean = false
 
-    override def value: Out = throw new NoSuchElementException("PackerResult.value on Failed")
+    override def value: Out =
+      throw new NoSuchElementException(msg)
   }
   case class Done[In, +Out](
     value: Out,
@@ -65,7 +66,7 @@ trait Packer[In, +Out] {
       case Done(value, taken) =>
         func(value).take(input.drop(taken)) match {
           case Done(newVal, moreTaken) => Done(newVal, taken + moreTaken)
-          case f => f.asInstanceOf[PackerResult[In, Out1]]
+          case f => f.asInstanceOf[PackerResult[In, Out1]]//TODO make the taken of this shit increase!
         }
       case f => f.asInstanceOf[PackerResult[In, Out1]]
     }
@@ -117,13 +118,13 @@ object Packer {
 
       def log(name: String): Packer[In, Out] = new Packer[In, Out] {
         override def take(input: List[In]): PackerResult[In, Out] = {
-          println(s"packer $name will take ${input.take(5)} ${input.size}")
+          println(s"packer $name will take ${input.take(5).mkString("([","][","]...")} ${input.size}")
           val result = value.take(input)
           result match {
             case Done(value, taken) =>
-              println(s"packer $name returned with value $value and took ${taken} tokens leaving a remaining ${input.slice(taken, taken + 5)}")
+              println(s"packer $name returned with value $value and took $taken tokens leaving a remaining ${input.slice(taken, taken + 5).mkString("([","][","]...")}")
             case Failed(m, taken) =>
-              println(s"packer $name failed for input ${input.take(5)}... $taken ahead with message: $m")
+              println(s"packer $name failed for input ${input.take(5).mkString("([","][","]...")}... $taken ahead with message: $m")
           }
           result
         }
@@ -134,13 +135,12 @@ object Packer {
         max: Option[Int] = None,
         sep: Packer[In, _] = pure(())
       ): Packer[In, List[Out]] = {
-        repeatExactly(value, min, sep).flatMap {
-          prefix =>
-            repeatUpTo(value, max, sep).map {
-              suffix =>
-                prefix ::: suffix
-            }
-        }
+        if(min>0)
+          for{
+            prefix <- repeatExactly(value,min,sep)
+            suffix <- repeatUpTo(sep.flatMap(_ => value),max,pure(()))
+          } yield prefix:::suffix
+        else repeatUpTo(value,max,sep)
       }
 
       def rep: Packer[In, List[Out]] = {
@@ -216,10 +216,7 @@ object Packer {
           val sepPacker = if (accum.isEmpty) packer else sep.flatMap(_ => packer)
           sepPacker.flatMap {
             value =>
-              repeatExactly(packer, exactly - 1, sep).map {
-                tail =>
-                  value :: tail
-              }
+              recursive(exactly - 1, value::accum)
           }
       }
     }
