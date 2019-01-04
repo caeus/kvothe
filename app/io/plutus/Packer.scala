@@ -1,190 +1,275 @@
 package io.plutus
 
+import scala.collection.SeqLike
+
 import io.plutus.PackerResult.{Done, Failed}
 
+//I like this structure, but something is off...
+/*
+* A result has only a value and tells me SOMEHOW, how the input was affected!
+* How? A result obviously holds the value, and also a transformation on the original input.
+* How?
+*
+* */
 
-trait PackerResult[In, Out]
+trait PackerResult[In, +Out] extends {
+  def isDone: Boolean
+  def value: Out
+  def taken: Int
+  final def map[Out1](func: Out => Out1): PackerResult[In, Out1] = this match {
+    case Done(value, taken) =>
+      Done(func(value), taken)
+    case f => f.asInstanceOf[PackerResult[In, Out1]]
+  }
+}
 object PackerResult {
-  case class Failed[In, Out]() extends PackerResult[In, Out]
-  case class Done[In, Out](
+  implicit def ioPlutusOrderingInstance[In, Out]: Ordering[PackerResult[In, Out]] = new Ordering[PackerResult[In, Out]] {
+    override def compare(
+      x: PackerResult[In, Out],
+      y: PackerResult[In, Out]
+    ): Int = {
+      val compare1 = x.isDone.compareTo(y.isDone)
+      if (compare1 != 0)
+        return compare1
+      x.taken.compareTo(y.taken)
+    }
+  }
+  case class Failed[In, +Out](
+    msg: String,
+    taken: Int
+  ) extends PackerResult[In, Out] {
+    override def isDone: Boolean = false
+
+    override def value: Out = throw new NoSuchElementException("PackerResult.value on Failed")
+  }
+  case class Done[In, +Out](
     value: Out,
-    remaining: List[In]
-  ) extends PackerResult[In, Out]
+    taken: Int
+  ) extends PackerResult[In, Out] {
+    override def isDone: Boolean = true
+  }
   //Sorry byt later case class Cont[In, Out](next: Tarser[In, Out]) extends TarserResult[In, Out]
   //Adding this makes it very difficult to add the forking ability
 }
-trait Packer[In, Out] {
-
+trait Packer[In, +Out] {
+  self =>
   def take(input: List[In]): PackerResult[In, Out]
 
+  final def apply(input: List[In]): PackerResult[In, Out] = take(input)
+
+  final def transform[Out1](func: PackerResult[In, Out] => PackerResult[In, Out1]): Packer[In, Out1] =
+    (input: List[In]) => func(self.take(input))
+
+  final def flatMap[Out1](func: Out => Packer[In, Out1]): Packer[In, Out1] =
+    (input: List[In]) => self.take(input) match {
+      case Done(value, taken) =>
+        func(value).take(input.drop(taken)) match {
+          case Done(newVal, moreTaken) => Done(newVal, taken + moreTaken)
+          case f => f.asInstanceOf[PackerResult[In, Out1]]
+        }
+      case f => f.asInstanceOf[PackerResult[In, Out1]]
+    }
+
+  final def map[Out1](func: Out => Out1): Packer[In, Out1] = flatMap(out => Packer.pure(func(out)))
 }
 
 object Packer {
 
   object syntax {
-    implicit class TarserOps[In, Out](val value: Packer[In, Out]) extends AnyVal {
-      def map[Out1](func: Out => Out1): Packer[In, Out1] = mapResult(value)(func)
 
-      def ~[Out1](next: => Packer[In, Out1]): Packer[In, Unit] = mapResult(concat(value, next))(_ => ())
+    object P {
+      @inline
+      def apply[In, Out](packer: Packer[In, Out]): Packer[In, Out] = packer
 
-      def ~>[Out1](next: => Packer[In, Out1]): Packer[In, Out1] = mapResult(concat(value, next))(_._2)
+      def apply[In, Repr](seq: SeqLike[In, Repr]): Packer[In, Unit] = fromList(seq.toList)
 
-      def <~>[Out1](next: => Packer[In, Out1]): Packer[In, (Out,Out1)] = concat(value, next)
+      def apply[In](pred: In => Boolean): Packer[In, Unit] = fromPredicate(pred)
+    }
+    implicit class PredicateOps[In](val value: In => Boolean) extends AnyVal {
+      def &&(other: In => Boolean): In => Boolean = { char =>
+        value(char) && other(char)
+      }
 
-      def <~[Out1](next: => Packer[In, Out1]): Packer[In, Out] = mapResult(concat(value, next))(_._1)
+      def ||(other: In => Boolean): In => Boolean = { char =>
+        value(char) || other(char)
+      }
 
-      def ? : Packer[In, Option[Out]] = mapResult(repeat(value, 0, Some(1)))(_.headOption)
+      def unary_! : In => Boolean = { char =>
+        !value(char)
+      }
+    }
 
-      def rep(min: Int = 0, max: Option[Int] = None): Packer[In, List[Out]] = {
-        repeat(value, min, max)
+
+    implicit class PackerOps[In, Out](val value: Packer[In, Out]) extends AnyVal {
+
+      def ~[Out1](next: => Packer[In, Out1]): Packer[In, Unit] = value.flatMap(_ => next.map(
+        _ => ()))
+
+      def ~>[Out1](next: => Packer[In, Out1]): Packer[In, Out1] = value.flatMap(_ => next)
+
+      def <~>[Out1](next: => Packer[In, Out1]): Packer[In, (Out, Out1)] = value.flatMap(a => next.map(
+        b => a -> b))
+
+      def <~[Out1](next: => Packer[In, Out1]): Packer[In, Out] = value.flatMap(a => next.map(
+        _ => a))
+
+      def ? : Packer[In, Option[Out]] = repeatUpTo(value, Some(1), pure(())).map(_.headOption)
+
+      def log(name: String): Packer[In, Out] = new Packer[In, Out] {
+        override def take(input: List[In]): PackerResult[In, Out] = {
+          println(s"packer $name will take ${input.take(5)} ${input.size}")
+          val result = value.take(input)
+          result match {
+            case Done(value, taken) =>
+              println(s"packer $name returned with value $value and took ${taken} tokens leaving a remaining ${input.slice(taken, taken + 5)}")
+            case Failed(m, taken) =>
+              println(s"packer $name failed for input ${input.take(5)}... $taken ahead with message: $m")
+          }
+          result
+        }
+      }
+
+      def rep(
+        min: Int = 0,
+        max: Option[Int] = None,
+        sep: Packer[In, _] = pure(())
+      ): Packer[In, List[Out]] = {
+        repeatExactly(value, min, sep).flatMap {
+          prefix =>
+            repeatUpTo(value, max, sep).map {
+              suffix =>
+                prefix ::: suffix
+            }
+        }
+      }
+
+      def rep: Packer[In, List[Out]] = {
+        repeatUpTo(value, None, pure(()))
       }
 
       def ! : Packer[In, List[In]] = capture(value)
 
-      def |(other: => Packer[In, Out]): Packer[In, Out] = fork(List(value, other))
+      def |[NewOut >: Out](other: => Packer[In, NewOut]): Packer[In, NewOut] = {
+        longestOf(value, other)
+      }
     }
+
   }
+
+
   def capture[In, Out](value: Packer[In, Out]): Packer[In, List[In]] = {
     input: List[In] =>
       value.take(input) match {
-        case Done(_, remaining) => Done(input.take(input.size - remaining.size), remaining)
-        case Failed() => Failed()
+        case Done(_, taken) =>
+          Done(input.take(taken), taken)
+        case f => f.asInstanceOf[PackerResult[In, List[In]]]
       }
   }
 
-  private def repeatRec[In, Out](
-    elem: Packer[In, Out],
-    min: Int,
-    max: Option[Int],
-    accum: List[Out],
-  ): Packer[In, List[Out]] = {
-    (min compareTo 0, max.map(_ compareTo min).getOrElse(1)) match {
-      case (-1, _) => throw new IllegalArgumentException("Repeat qty must be greater than or equals than zero")
-      case (_, -1) => throw new IllegalArgumentException("Repeat qty must be greater than or equals than zero")
-      case (0, 0) =>
-        pure(accum)
-      case (_, 1) => //minimum is zero, and it can go on!
-        (input: List[In]) => {
-          elem.take(input) match {
-            case Failed() =>
-              if (min == 0)
-                Done(accum, input)
-              else Failed()
-            case Done(value, remaining) =>
-              repeatRec(elem, 0, max.map(_ - 1), value :: accum)
-                .take(remaining)
-          }
-        }
+  def fromPredicate[In](predicate: In => Boolean): Packer[In, Unit] =
+    (input: List[In]) => input match {
+      case head :: tail if predicate(head) => Done((), 1)
+      case head :: _ => Failed(s"token `$head` didn't satisfy the predicate $predicate", 1)
+      case _ => Failed(s"Expected one token, EOI gotten instead", 0)
     }
-  }
 
-  def repeat[In, Out](
-    elem: Packer[In, Out],
-    min: Int,
-    max: Option[Int]
+
+  def repeatUpTo[In, Out](
+    packer: Packer[In, Out],
+    upTo: Option[Int],
+    sep: Packer[In, _]
   ): Packer[In, List[Out]] = {
-    mapResult(repeatRec(elem, min, max, Nil))(_.reverse)
+    def recursive(upTo: Option[Int], accum: List[Out]): Packer[In, List[Out]] = {
+      upTo.map(_.compareTo(0)).getOrElse(1) match {
+        case -1 => throw new IllegalArgumentException("Repeat quantity must be greater than 0")
+        case 0 => pure(accum)
+        case 1 =>
+          val sepPacker =
+            longestOf[In, Option[Out]](
+              pure(None),
+              (if (accum.nonEmpty)
+                sep.flatMap(_ => packer)
+              else
+                packer).map(Some(_)))
+          sepPacker.flatMap {
+            case None =>
+              pure(accum)
+            case Some(value) =>
+              recursive(upTo.map(_ - 1), value :: accum)
+          }
+      }
+    }
+
+    recursive(upTo, Nil).map(_.reverse)
   }
 
+  def repeatExactly[In, Out](
+    packer: Packer[In, Out],
+    exactly: Int,
+    sep: Packer[In, _]
+  ): Packer[In, List[Out]] = {
+    def recursive(exactly: Int, accum: List[Out]): Packer[In, List[Out]] = {
+      exactly.compareTo(0) match {
+        case -1 => throw new IllegalArgumentException("Repeat quantity must be greater than 0")
+        case 0 => pure(accum)
+        case 1 =>
+          val sepPacker = if (accum.isEmpty) packer else sep.flatMap(_ => packer)
+          sepPacker.flatMap {
+            value =>
+              repeatExactly(packer, exactly - 1, sep).map {
+                tail =>
+                  value :: tail
+              }
+          }
+      }
+    }
+
+    recursive(exactly, Nil).map(_.reverse)
+  }
 
   def pure[In, Out](value: Out): Packer[In, Out] = new PurePacker[In, Out](value)
 
-
-  //def fromPredicate[In](pred: In=>Boolean):Tarser[]
   private class FromListPacker[In](from: List[In]) extends Packer[In, Unit] {
     def reqTake(
       input: List[In],
       recFrom: List[In],
-      recInput: List[In]
+      recInput: List[In],
+      taken: Int
     ): PackerResult[In, Unit] = {
       (recFrom, recInput) match {
         case (h1 :: t1, h2 :: t2) if h1 == h2 =>
-          reqTake(input, t1, t2)
+          reqTake(input, t1, t2, taken + 1)
         case (_ :: _, _) =>
-          Failed()
+          Failed(s"$recFrom expected. Got ${recInput.take(5)} instead", taken)
         case (Nil, _) =>
-          Done((), recInput)
+          Done((), taken)
       }
     }
 
     override def take(input: List[In]): PackerResult[In, Unit] = {
-      println(input -> s"fromList for $from")
-      reqTake(input, from, input)
+      reqTake(input, from, input, 0)
     }
+
   }
 
   def fromList[In](from: List[In]): Packer[In, Unit] = new FromListPacker[In](from)
 
 
-  def fork[In, Out](
-    alternatives: List[Packer[In, Out]],
-  ): Packer[In, Out] = new ForkPacker(alternatives)
+  def longestOf[In, Out](
+    alternatives: Packer[In, Out]*,
+  ): Packer[In, Out] = new LongestOfPacker(alternatives)
 
-  private class ForkPacker[In, Out](
-    alternatives: List[Packer[In, Out]]
+  private class LongestOfPacker[In, Out](
+    alternatives: Seq[Packer[In, Out]]
   ) extends Packer[In, Out] {
     override def take(input: List[In]): PackerResult[In, Out] = {
-      println((input, "Fork for ", alternatives))
-      alternatives.foldLeft(Failed(): PackerResult[In, Out]) {
-        case (result @ Done(_, Nil), _) => result
-        case (current @ Done(_, remaining), next) =>
-          next.take(input) match {
-            case betterResult @ Done(_, x) if x.size < remaining.size => betterResult
-            case _ => current
-          }
-        case (_, next) =>
-          next.take(input)
-      }
+      alternatives.map(_.take(input)).max
     }
   }
   private class PurePacker[In, Out](value: Out) extends Packer[In, Out] {
-    override def take(input: List[In]): PackerResult[In, Out] = {
-      println(input -> "pure")
-      Done(value, input)
+    override def take(nput: List[In]): PackerResult[In, Out] = {
+      Done(value, 0)
     }
   }
 
-  def flatMapResult[In, A, B](ta: Packer[In, A])
-    (func: A => Packer[In, B]): Packer[In, B] = {
-    new FlatMapPacker[In, A, B](ta, func)
-  }
-
-  private class FlatMapPacker[In, OutA, OutB](
-    base: Packer[In, OutA],
-    func: OutA => Packer[In, OutB]
-  ) extends Packer[In, OutB] {
-    override def take(input: List[In]): PackerResult[In, OutB] = {
-      println(input -> "flatMap for " + base.toString)
-      base.take(input) match {
-        case Done(out0, remaining) =>
-          val value = func(out0)
-          value.take(remaining)
-        case Failed() =>
-          Failed()
-      }
-    }
-  }
-
-  def concat[In, Out1, Out2](
-    t1: Packer[In, Out1],
-    t2: => Packer[In, Out2]
-  ): Packer[In, (Out1, Out2)] = flatMapResult(t1) {
-    out1 =>
-      mapResult(t2) {
-        out2 => out1 -> out2
-      }
-  }
-
-  def mapResult[In, Out0, Out1](t: Packer[In, Out0])
-    (f: Out0 => Out1): Packer[In, Out1] = {
-    input: List[In] => {
-      println(input -> "map for" + t.toString)
-      t.take(input) match {
-        case Done(out, remaining) =>
-          Done(f(out), remaining)
-        case Failed() =>
-          Failed()
-      }
-    }
-  }
 }

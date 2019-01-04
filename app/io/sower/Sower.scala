@@ -167,9 +167,7 @@ class ConcreteSower[F[_], Input, Output](vineCombiner: Vine.Combiner[Output])
   (implicit F: MonadError[F, Throwable]) extends Sower[F, Input, Output] {
   override implicit def vineWriter[X](implicit xWriter: Writer[X]): Writer[Vine[X]] = Pipe[Vine[X], Output] {
     vineOfX =>
-
       val value = vineOfX.map(xWriter.apply)
-      println(value)
       value.combineWith(vineCombiner)
   }
 }

@@ -9,7 +9,6 @@ import cats.data.{Ior, NonEmptyVector}
 import enumeratum.{Enum, EnumEntry}
 import kvothe.FSM.FSMState
 import kvothe.FSM.FSMState.{ConcatS, IndexS, IorS}
-import kvothe.RExpression._
 import kvothe.Tokenizer.Predicate
 
 
@@ -202,109 +201,7 @@ object Tokenizer extends BaseKDefinitions {
 
   def f_space[_: P] = P(CharsWhileIn(" \r\n", 0))
 }
-object RExpression {
-  case class RString(value: String) extends RExpression
-  case class RNumber(value: BigDecimal) extends RExpression
-  case object RNull extends RExpression
-  case class RBoolean(value: Boolean) extends RExpression
-  case class RObject(value: Map[String, RExpression]) extends RExpression
-  case class RArray(value: Seq[RExpression]) extends RExpression
-  case class RReference(value: String) extends RExpression
-  case class RLetExpression(
-    binding: RReference,
-    to: RExpression,
-    in: RExpression
-  ) extends RExpression
-  case class RLambdaExpression(
-    self: Option[RReference],
-    arg: RReference,
-    body: RExpression
-  ) extends RExpression
-  case class RIfExpression(
-    cond: RExpression,
-    ifTrue: RExpression,
-    ifFalse: RExpression
-  ) extends RExpression
-  case class RApplyExpression(func: RExpression, arg: RExpression) extends RExpression
-}
 
-case class KParser(vector: Vector[KToken]) extends BaseKDefinitions {
-
-  implicit class _KTokenKindAsParser[_: P](value: KTokenKind) {
-    def p: P[Int] = P("|" ~ KTokenKind.indexOf(value).toString ~ ":" ~ CharsWhile(isDigit).!.map(
-      s => s.toInt))
-  }
-  import KTokenKind._
-
-
-  def arrayLiteral[_: P] = P(OpenBracket.p ~ expression_real.rep(sep = Comma.p) ~
-    CloseBracket.p).map(vals => RArray(vals._2))
-
-  private def stringLiteral[_: P]: P[RString] = StringLiteral.p.map(vector).map(_.value).map(RString)
-
-  def objectLiteral[_: P] = P(OpenCurly.p ~
-    (stringLiteral ~ Colon.p ~ expression_real).rep(sep = Comma.p) ~ CloseCurly.p).map(_._2.map {
-    case (key, _, value) => key.value -> value
-  }.toMap match {
-    case x => RObject(x)
-  })
-
-  def enclosedExp[_: P] = P(OpenParenthesis.p ~ expression_real ~
-    CloseParenthesis.p).map(_._2)
-
-  private def identifierExpression[_: P]: P[RReference] = P(Identifier.p).map(s=>RReference(vector(s).value))
-
-  def letExpression[_: P] = P(Let.p ~ identifierExpression ~ Equals.p ~
-    expression_real ~
-    Semicolon.p ~ expression_real).map {
-    case (_, bind, _, to, _, in) => RLetExpression(bind, to, in)
-  }
-
-
-  def lambdaExpression[_: P] = P(OpenParenthesis.p ~
-    identifierExpression ~ CloseParenthesis.p ~ Arrow.p ~ expression_real).map {
-    case (_, arg, b, c, body) => RLambdaExpression(None, arg, body)
-  }
-
-  def numberLiteral[_: P] = P(NumberLiteral.p).map { s => RNumber(BigDecimal(vector(s).value)) }
-
-  def functionCallExpression[_: P] = P(expression_real ~
-    OpenParenthesis.p ~ expression_real ~ CloseParenthesis.p)
-
-
-  def nullLiteral[_: P] = P(NullLiteral.p).map(_ => RNull)
-
-  def boolLiteral[_: P] = P(BoolLiteral.p).map(s => RBoolean(vector(s).value.toBoolean))
-
-  def expression_real[_: P]: P[RExpression] = P(
-    stringLiteral |
-      numberLiteral |
-      boolLiteral |
-      nullLiteral |
-      arrayLiteral |
-      objectLiteral |
-      lambdaExpression |
-      //enclosed under lambda
-      enclosedExp |
-      letExpression|
-    identifierExpression
-  )
-
-  def expresssion[_: P]: P[Any] = P(
-    functionCallExpression |
-      letExpression |
-      lambdaExpression |
-      stringLiteral |
-      NumberLiteral.p.map(vector).map(_.value).map(s => RNumber(BigDecimal(s))) |
-      NullLiteral.p.map(_ => RNull) |
-      BoolLiteral.p.map(vector).map(_.value).map(RString) |
-      identifierExpression)
-
-}
-
-object Splitter {
-
-}
 
 
 //cool, but for later
@@ -440,7 +337,7 @@ object FSM {
 }
 
 
-sealed trait RExpression
+
 
 
 object Fuck {
