@@ -16,7 +16,7 @@ object ElodinAST {
     def visitArray(items: Seq[ElodinAST]): R
     def visitRef(ref: String): R
     def visitLet(bindings: Map[String, ElodinAST], body: ElodinAST): R
-    def visitLambda(args: Set[String], body: ElodinAST): R
+    def visitLambda(args: Seq[String], body: ElodinAST): R
     def visitApply(func: ElodinAST, args: List[ElodinAST]): R
   }
 
@@ -48,7 +48,7 @@ object ElodinAST {
     override def accept[R](visitor: EloVisitor[R]): R = visitor.visitLet(binding,in)
   }
   case class LambdaAST(
-    args: Set[String],
+    args: Seq[String],
     body: ElodinAST
   ) extends ElodinAST {
     override def accept[R](visitor: EloVisitor[R]): R = visitor.visitLambda(args,body)

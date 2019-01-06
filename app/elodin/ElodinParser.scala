@@ -41,7 +41,7 @@ object ElodinParser {
   def lambdaExpression: Packer[ElodinToken, LambdaAST] = P(OpenParenthesis.p ~ Fn.p ~
     OpenBracket.p ~> identifierExpression.map(_.value).rep(min = 1, sep = Comma.p) <~ CloseBracket.p <~>
     expression <~ CloseParenthesis.p).map {
-    case (args, expression) => LambdaAST(args.toSet, expression)
+    case (args, expression) => LambdaAST(args, expression)
   }
 
   def numberLiteral: Packer[ElodinToken, NumberAST] = P(NumberLiteral.p).map { s => NumberAST(BigDecimal(s.value)) }
