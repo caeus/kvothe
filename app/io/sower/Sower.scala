@@ -2,7 +2,6 @@ package io.sower
 
 import scala.language.higherKinds
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 import cats._
 import cats.implicits._
@@ -11,9 +10,9 @@ import io.vine.{Vine, VineT}
 
 abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Throwable]) {
 
-  type Sync[X] = Try[X]
+  type Sync[X] = Either[Throwable, X]
   type SegmentParser[X] = Pipe[Option[String], Option[X]]
-  type InputParser[X] = Pipe[Input, Sync[X]]
+  type InputParser[X] = Pipe[Input, F[X]]
   type NormalReq = Request[Input]
   type Writer[X] = Pipe[X, Output]
 
@@ -22,20 +21,20 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
   implicit def vineWriter[X](implicit xWriter: Writer[X]): Writer[Vine[X]]
 
 
-  final def normalInputParser: InputParser[Input] = Pipe[Input, Sync[Input]](params => Try(params))
+  final def normalInputParser: InputParser[Input] = Pipe[Input, F[Input]](monadError.pure)
 
   sealed trait Sprout[From] {
-    def compile(request: NormalReq): Sync[Program[From]]
+    def compile(request: NormalReq): F[Program[From]]
 
     final def narrow[NewIn](func: NewIn => Vine[From]): Sprout[NewIn] = {
       NarrowedSprout(func, this)
     }
 
-    final def optional : Sprout[Option[From]] = narrow(Vine.option)
+    final def optional: Sprout[Option[From]] = narrow(Vine.option)
 
-    final def array : Sprout[Seq[From]] = narrow(Vine.seq)
+    final def array: Sprout[Seq[From]] = narrow(Vine.seq)
 
-    final def dictionary : Sprout[Map[String, From]] = narrow(Vine.map)
+    final def dictionary: Sprout[Map[String, From]] = narrow(Vine.map)
 
   }
 
@@ -43,7 +42,7 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
     narrower: NewIn => Vine[In],
     underlying: Sprout[In]
   ) extends Sprout[NewIn] {
-    override def compile(request: NormalReq): Sync[Program[NewIn]] = {
+    override def compile(request: NormalReq): F[Program[NewIn]] = {
       underlying.compile(request).map {
         program =>
           program.narrow(narrower)
@@ -69,7 +68,6 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
 
   private case class BranchProgram[From, Segment, Payload, To](
     segmentName: String,
-    segmentInput: Segment,
     request: BranchReq[Segment, Payload],
     resolver: BranchReq[Segment, Payload] => From => F[To],
     next: Program[To]
@@ -95,21 +93,21 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
 
   private case class Ramification[From](branches: Seq[Branch[From]]) extends Sprout[From] {
 
-    override def compile(request: NormalReq): Sync[Program[From]] = {
+    override def compile(request: NormalReq): F[Program[From]] = {
       request.currentSegment.map {
         rawSegment =>
           branches.iterator.map(_.compile(rawSegment, request)).dropWhile(_.isEmpty)
             .map(_.get).toIterable
-            .headOption.getOrElse(Failure(NoBranchFoundError(request)))
-      }.getOrElse(Failure(EndOfRouteFound(request)))
-
+            .headOption
+            .getOrElse(monadError.raiseError(NoBranchFoundError(request)))
+      }.getOrElse(monadError.raiseError(EndOfRouteFound(request)))
     }
   }
   def leaf[From](implicit writer: Pipe[From, Output]): Sprout[From] = Leaf(writer)
 
   private case class Leaf[From](writer: Writer[From]) extends Sprout[From] {
-    override def compile(request: NormalReq): Sync[Program[From]] =
-      Success(LeafProgram(writer))
+    override def compile(request: NormalReq): F[Program[From]] =
+      monadError.pure(LeafProgram(writer))
   }
 
   def branch[From, Segment, Payload, To](
@@ -125,7 +123,7 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
   }
 
   trait Branch[In] {
-    def compile(segment: String, request: NormalReq): Option[Sync[Program[In]]]
+    def compile(segment: String, request: NormalReq): Option[F[Program[In]]]
   }
 
 
@@ -138,26 +136,23 @@ abstract class Sower[F[_], Input, Output](implicit monadError: MonadError[F, Thr
     override def compile(
       rawSegment: String,
       request: NormalReq
-    ): Option[Sync[Program[From]]] = {
+    ): Option[F[Program[From]]] = {
 
       selector.matchRawSegment(rawSegment).map {
         segment =>
+          //I need this intermediate result because compiler sucks
           for {
-            segment <- segment.recoverWith {
+            segmentPayload <- monadError.product(segment.fold({
               case NonFatal(e) =>
-                Failure(ParsingError(s"Error parsing segment: $rawSegment", request, Some(e)))
-            }
-            payload <- inputParser(request.payload).recoverWith {
+                monadError.raiseError[Segment](ParsingError(s"Error parsing segment: $rawSegment", request, Some(e)))
+            }, monadError.pure), inputParser(request.payload).recoverWith {
               case NonFatal(e) =>
-                Failure(ParsingError(s"Error parsing payload: ${request.payload}-> ${e.getMessage}", request, Some(e)))
-            }
-            next <- request.next.map(Success(_))
-              .getOrElse(Failure(EndOfRouteFound(request))).flatMap {
-              nextRequest =>
-                into.compile(nextRequest)
-            }
-          } yield BranchProgram(selector.name, segment, BranchReq(segment, payload), resolver, next)
-
+                monadError.raiseError(ParsingError(s"Error parsing payload: ${request.payload}-> ${e.getMessage}", request, Some(e)))
+            })
+            next<- request.next.map(Right(_))
+              .getOrElse(Left(EndOfRouteFound(request)))
+              .fold(t=>monadError.raiseError[Program[To]](t), into.compile)
+          } yield BranchProgram(selector.name, BranchReq(segmentPayload._1, segmentPayload._2), resolver, next)
       }
     }
   }

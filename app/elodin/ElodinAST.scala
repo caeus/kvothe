@@ -1,8 +1,10 @@
 package elodin
 
+import elodin.EloLab.{EloScope, EloVal}
 import elodin.ElodinAST.EloVisitor
 
 sealed trait ElodinAST {
+  //def eval(scope:EloScope):EloVal
   def accept[R](visitor:EloVisitor[R]):R
 }
 object ElodinAST {
@@ -16,7 +18,7 @@ object ElodinAST {
     def visitArray(items: Seq[ElodinAST]): R
     def visitRef(ref: String): R
     def visitLet(bindings: Map[String, ElodinAST], body: ElodinAST): R
-    def visitLambda(args: Seq[String], body: ElodinAST): R
+    def visitLambda(arg: String, body: ElodinAST): R
     def visitApply(func: ElodinAST, args: List[ElodinAST]): R
   }
 

@@ -28,13 +28,13 @@ case class BranchReq[Segment, Payload](
   segment: Segment,
   payload: Payload
 )
-case class BranchSelector[X](name: String, func: Option[String] => Try[X]) {
+case class BranchSelector[X](name: String, func: Option[String] => Either[Throwable,X]) {
   name.ensuring(_.indexOf(':') == -1, s"""Semicolon must not be used in names of branch: "$name"""")
-  private lazy val matcher = s"${Regex.quote(name)}(:.*)?".r
+  private lazy val matcher = s"${Regex.quote(name)}(:(.*))?".r
 
-  def matchRawSegment(segment: String): Option[Try[X]] = {
+  def matchRawSegment(segment: String): Option[Either[Throwable,X]] = {
     segment match {
-      case matcher(content) => Some(func(Option(content).map(_.substring(1))))
+      case matcher(_,content) => Some(func(Option(content)))
       case _ => None
     }
   }

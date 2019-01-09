@@ -7,42 +7,14 @@ import elodin.ElodinAST.EloVisitor
 object EloLab {
 
   sealed trait EloVal
-  sealed trait EloFixedVal extends EloVal
-  sealed trait  EloCallable extends EloVal{
-    def apply(args: Seq[EloVal]): EloVal
-  }
-  case class EloLazyVal(eval: Eval[EloVal]) extends EloVal
-  case class EloNumber(value: BigDecimal) extends EloFixedVal
-  case class EloGeneric[R](value: R) extends EloFixedVal
-  case class EloNull() extends EloFixedVal
-  case class EloArray(values: Seq[EloVal]) extends EloCallable{
 
-  }
-
-  case class EloObject(fields: Map[String, EloVal]) extends EloCallable{
-
-  }
-  case class EloError(msg: String) extends EloFixedVal
-  case class EloLambda(
-    argNames: Seq[String],
-    creationScope: EloScope,
-    body: ElodinAST
-  ) extends EloCallable {
-    def apply(args: Seq[EloVal]): EloVal = {
-      if (args.size != argNames.size)
-        EloError(s"function takes ${argNames.size} parameters, but it was called with ${args.size} parameters")
-      else {
-        val scope = ChildEloScope(argNames.zip(args).toMap, creationScope)
-        body.accept(new ExecutorVisitor(scope))
-      }
-    }
-  }
+  case class EloEager[X](x:X) extends EloVal
 
   sealed trait EloScope {
     def get(name: String): EloVal
   }
   object EloRootScope extends EloScope {
-    override def get(name: String): EloVal = new EloNull
+    override def get(name: String): EloVal = ???
   }
   case class ChildEloScope(
     bindings: Map[String, EloVal],
@@ -59,34 +31,29 @@ object EloLab {
 }
 class ExecutorVisitor(scope: EloScope) extends EloVisitor[EloVal] {
   thisVisitor =>
-  override def visitString(value: String): EloVal = EloGeneric(value)
+  override def visitString(value: String): EloVal = ???
 
-  override def visitNumber(value: BigDecimal): EloVal = EloGeneric(value)
+  override def visitNumber(value: BigDecimal): EloVal = ???
 
-  override def visitNull: EloVal = EloNull()
+  override def visitNull: EloVal = ???
 
-  override def visitBoolean(value: Boolean): EloVal = EloGeneric(value)
+  override def visitBoolean(value: Boolean): EloVal = ???
 
-  override def visitObject(fields: Map[String, ElodinAST]): EloVal = EloObject(fields.mapValues(_.accept(thisVisitor)))
+  override def visitObject(fields: Map[String, ElodinAST]): EloVal = ???
 
-  override def visitArray(items: Seq[ElodinAST]): EloVal = EloArray(items.map(_.accept(thisVisitor)))
+  override def visitArray(items: Seq[ElodinAST]): EloVal = ???
 
   override def visitRef(ref: String): EloVal = scope.get(ref)
 
   override def visitLet(
     bindings: Map[String, ElodinAST],
     body: ElodinAST
-  ): EloVal = {
-    val asd: EloScope = ChildEloScope(bindings.mapValues { exp =>
-      EloLazyVal(Eval.later(exp.accept(new ExecutorVisitor(asd))))
-    }, scope)
-    body.accept(new ExecutorVisitor(asd))
-  }
+  ): EloVal = ???
 
   override def visitLambda(
-    args: Seq[String],
+    args: String,
     body: ElodinAST
-  ): EloVal = EloLambda(args: Seq[String], creationScope = scope, body)
+  ): EloVal = ???
 
   override def visitApply(
     func: ElodinAST,
